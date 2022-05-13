@@ -1,22 +1,19 @@
 package io.timewheel.crypto
 
-import android.util.Base64
-import androidx.test.ext.junit.runners.AndroidJUnit4
-import org.junit.Assert.assertEquals
+import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
 import java.nio.ByteBuffer
 import java.security.SecureRandom
+import java.util.*
 import kotlin.text.Charsets.UTF_8
 
-@RunWith(AndroidJUnit4::class)
-class AesGcmCipherImplTest {
+abstract class AesGcmCipherImplTest {
     private lateinit var subject: AesGcmCipherImpl
 
     @Before
     fun setUp() {
-        subject = AesGcmCipher.Builder().build() as AesGcmCipherImpl
+        subject = AesGcmCipherBuilderImpl().build() as AesGcmCipherImpl
     }
 
     @Test
@@ -59,7 +56,7 @@ class AesGcmCipherImplTest {
         val input = ByteBuffer.allocate(4)
             .putInt(-1)
             .array()
-        val base64Input = Base64.encodeToString(input, Base64.DEFAULT)
+        val base64Input = Base64.getEncoder().encodeToString(input)
 
         // When
         val result = subject.decrypt(base64Input, "")
@@ -82,40 +79,43 @@ class AesGcmCipherImplTest {
     }
 
     @Test
-    fun encodeAndDecode_isSymmetric() {
+    fun toByteArray_thenToString_withUTF8_isSymmetric() {
         // Given
-        val nonce = subject.getRandomNonce(16)
+        val string = randomString(256)
 
         // When
-        val encodedNonce = Base64.encodeToString(nonce, Base64.DEFAULT)
-        val decodedNonce = Base64.decode(encodedNonce.toByteArray(), Base64.DEFAULT)
+        val byteString = string.toByteArray(UTF_8)
+        val decodedString = byteString.toString(UTF_8)
 
         // Then
-        assertEquals(hex(nonce), hex(decodedNonce))
+        assertEquals(string, decodedString)
     }
 
     @Test
-    fun toByteArray_thenToString_withUTF8_isSymmetric() {
+    fun toString_thenToByteArray_withUTF8_isSymmetric() {
         // Given
-        val string = randomString(16)
+        val string = randomString(256)
 
         // When
-        val byteSalt = string.toByteArray(UTF_8)
-        val decodedSalt = byteSalt.toString(UTF_8)
+        val byteString = string.toByteArray(UTF_8)
+        val decodedString = byteString.toString(UTF_8)
 
         // Then
-        assertEquals(string, decodedSalt)
+        assertEquals(string, decodedString)
     }
 
-    private fun randomString(length: Int): String {
-        val bytes = ByteArray(length)
-        SecureRandom().nextBytes(bytes)
-        return bytes.toString(UTF_8)
-    }
+    // TODO this feels strange to me; investigate
+    @Test
+    fun corruption() {
+        val buffer = ByteBuffer.allocate(3)
+        buffer.put(-56)
+        val array = buffer.array()
 
-    private fun hex(bytes: ByteArray) = StringBuilder().apply {
-        for (b in bytes) {
-            append(String.format("%02x", b))
-        }
-    }.toString()
+        val str = array.toString(UTF_8)
+        val newArray = str.toByteArray(UTF_8)
+        val newStr = newArray.toString(UTF_8)
+
+        assertFalse(array.equals(newArray))
+        assertEquals(str, newStr)
+    }
 }

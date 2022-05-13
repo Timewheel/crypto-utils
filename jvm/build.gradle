@@ -1,0 +1,21 @@
+plugins {
+    id 'java'
+    id 'org.jetbrains.kotlin.jvm'
+}
+
+java.sourceCompatibility = JavaVersion.VERSION_1_8
+java.targetCompatibility = JavaVersion.VERSION_1_8
+
+sourceSets {
+    main {
+        java.srcDirs += rootProject.file(["common", "src", "cipher", "kotlin"].join(File.separator))
+    }
+
+    test {
+        java.srcDirs += rootProject.file(["common", "src", "test", "kotlin"].join(File.separator))
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}

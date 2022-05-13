@@ -1,8 +1,5 @@
 package io.timewheel.crypto
 
-import android.util.Base64
-import androidx.annotation.AnyThread
-import androidx.annotation.VisibleForTesting
 import java.nio.ByteBuffer
 import java.security.NoSuchAlgorithmException
 import java.security.SecureRandom
@@ -46,7 +43,7 @@ private const val CURRENT_OUTPUT_VERSION = V1
  * The lengths of the salt, key, and IV as well as the iteration count are encoded into the
  * results should the lengths need changed at some point in the future.
  */
-@AnyThread // Stateless
+// @AnyThread // Stateless
 interface AesGcmCipher {
     /**
      * Encrypts a single [input] string using a [password].
@@ -88,7 +85,7 @@ interface AesGcmCipher {
     /**
      * Builds instances of [AesGcmCipher].
      */
-    class Builder {
+    abstract class Builder internal constructor(){
         private var saltLength = DEFAULT_SALT_LENGTH_BYTES
         private var ivLength = DEFAULT_IV_LENGTH_BYTES
         private var iterationCount = DEFAULT_ITERATION_COUNT
@@ -115,7 +112,10 @@ interface AesGcmCipher {
             this.tagLength = tagLength
         }
 
+        internal abstract fun getBase64Coder(): Base64Coder
+
         fun build(): AesGcmCipher = AesGcmCipherImpl(
+            getBase64Coder(),
             Algorithm.GcmNoPadding,
             saltLength,
             ivLength,
@@ -157,16 +157,19 @@ interface AesGcmCipher {
 
     companion object {
         fun build(block: (Builder.() -> Unit)): AesGcmCipher {
-            val builder = Builder()
+            // NOTE: AesGcmCipherBuilderImpl is defined by sourcing modules to provide a
+            // platform specific implementation of Base64Coder.
+            val builder = AesGcmCipherBuilderImpl()
             block(builder)
             return builder.build()
         }
     }
 }
 
-@AnyThread // Stateless
-@VisibleForTesting
+// @AnyThread // Stateless
+// @VisibleForTesting
 internal class AesGcmCipherImpl constructor(
+    private val coder: Base64Coder,
     private val algorithm: AesGcmCipher.Algorithm,
     private val saltLengthBytes: Int,
     private val ivLengthBytes: Int,
@@ -239,14 +242,14 @@ internal class AesGcmCipherImpl constructor(
                     .array()
 
                 // Add the result to the output
-                add(Base64.encodeToString(result, Base64.DEFAULT))
+                add(coder.encode(result))
             }
         }.toList()
     }
 
     override fun decrypt(input: String, password: String): DecryptionResult {
-        // Decode the base 64  input
-        val buffer = ByteBuffer.wrap(Base64.decode(input.toByteArray(UTF_8), Base64.DEFAULT))
+        // Decode the base 64 input
+        val buffer = ByteBuffer.wrap(coder.decode(input))
 
         // Decode version
         return when (buffer.int) {
@@ -301,7 +304,7 @@ internal class AesGcmCipherImpl constructor(
     /**
      * Creates a random nonce of the specified byte length.
      */
-    @VisibleForTesting // I have some tests that check the behavior of encoding and decoding
+    //@VisibleForTesting // I have some tests that check the behavior of encoding and decoding
     internal fun getRandomNonce(numBytes: Int) = ByteArray(numBytes).apply {
         SecureRandom().nextBytes(this)
     }
@@ -340,4 +343,20 @@ sealed class DecryptionError {
     object BadFormat : DecryptionError()
     object WrongPassword : DecryptionError()
     data class Other(val exception: Exception) : DecryptionError()
+}
+
+/**
+ * Turns [ByteArray]s into Base64 encoded [String]s and vice-versa. Both [encode] and [decode]
+ * operations must be symmetric. That is, if y = encode(x), then x = decode(y).
+ */
+internal interface Base64Coder {
+    /**
+     * Encodes the [source] [ByteArray] into a Base64 [String].
+     */
+    fun encode(source: ByteArray): String
+
+    /**
+     * Decodes the [source] Base64 [String] into a [ByteArray].
+     */
+    fun decode(source: String): ByteArray
 }
