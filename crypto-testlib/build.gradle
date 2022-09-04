@@ -1,15 +1,53 @@
 plugins {
     id 'java-library'
     id 'org.jetbrains.kotlin.jvm'
+    id 'maven-publish'
 }
-java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
-}
+
+group artifact.group
+ext.artifactId = "crypto"
+version artifact.version
+
+java.sourceCompatibility = JavaVersion.VERSION_1_8
+java.targetCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
     implementation project(":crypto-common")
 
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.7.10"
     implementation 'junit:junit:4.13.2'
+}
+
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.java
+
+                groupId = project.group
+                artifactId = artifactId
+                version = project.version
+
+                pom {
+                    developers {
+                        developer {
+                            id = "Izzy"
+                            name = "Ismael Alonso"
+                        }
+                    }
+                    scm {
+                        connection = "https://github.com/timewheel/crypto-util.git"
+                        developerConnection = "https://github.com/timewheel/crypto-util.git"
+                        url = "https://github.com/timewheel/crypto-util"
+                    }
+                    licenses {
+                        license {
+                            name = 'The Apache License, Version 2.0'
+                            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

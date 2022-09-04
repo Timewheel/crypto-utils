@@ -5,6 +5,7 @@ plugins {
 }
 
 group artifact.group
+ext.artifactId = "crypto"
 version artifact.version
 
 java.sourceCompatibility = JavaVersion.VERSION_1_8
@@ -17,32 +18,35 @@ dependencies {
     testImplementation project(":crypto-testlib")
 }
 
-publishing {
-    publications {
-        release(MavenPublication) {
-            from components.java
+afterEvaluate {
+    publishing {
+        publications {
+            release(MavenPublication) {
+                from components.java
 
-            groupId = project.group
-            artifactId = project.name
-            version = project.version
+                groupId = project.group
+                artifactId = artifactId
+                version = project.version
 
-            pom {
-                licenses {
-                    license {
-                        name = 'The Apache License, Version 2.0'
-                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                pom {
+                    developers {
+                        developer {
+                            id = "Izzy"
+                            name = "Ismael Alonso"
+                        }
+                    }
+                    scm {
+                        connection = "https://github.com/timewheel/crypto-util.git"
+                        developerConnection = "https://github.com/timewheel/crypto-util.git"
+                        url = "https://github.com/timewheel/crypto-util"
+                    }
+                    licenses {
+                        license {
+                            name = 'The Apache License, Version 2.0'
+                            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                        }
                     }
                 }
-            }
-        }
-    }
-    repositories {
-        maven {
-            name = "MyRepo" //  optional target repository name
-            url = "http://my.org.server/repo/url"
-            credentials {
-                username = 'alice'
-                password = 'my-password'
             }
         }
     }
