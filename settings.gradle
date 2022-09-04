@@ -13,6 +13,7 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "Crypto Utils"
-include ':app'
-include ':jvm'
-include ':android'
+include ':crypto-common'
+include ':crypto-testlib'
+include ':crypto'
+include ':crypto-android'

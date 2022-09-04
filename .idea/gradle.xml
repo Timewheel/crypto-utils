@@ -10,12 +10,12 @@
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/android" />
-            <option value="$PROJECT_DIR$/app" />
-            <option value="$PROJECT_DIR$/jvm" />
+            <option value="$PROJECT_DIR$/crypto" />
+            <option value="$PROJECT_DIR$/crypto-android" />
+            <option value="$PROJECT_DIR$/crypto-common" />
+            <option value="$PROJECT_DIR$/crypto-testlib" />
           </set>
         </option>
-        <option name="resolveModulePerSourceSet" value="false" />
       </GradleProjectSettings>
     </option>
   </component>
