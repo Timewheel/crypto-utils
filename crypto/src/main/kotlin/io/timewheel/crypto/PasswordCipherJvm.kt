@@ -2,10 +2,13 @@ package io.timewheel.crypto
 
 import java.util.*
 
-fun AesGcmCipher.Companion.build(block: AesGcmCipher.Builder.() -> Unit) = build(Base64CoderJvm(), block)
+/**
+ * Creates a JVM [PasswordCipher] builder.
+ */
+fun PasswordCipher.Companion.build(block: PasswordCipher.Builder.() -> Unit) = build(Base64CoderJvm(), block)
 
 /**
- * Pre Android API 26 implementation of [Base64Coder]. For API 26+ use the jvm implementation.
+ * JVM implementation of [Base64Coder].
  */
 internal class Base64CoderJvm : Base64Coder {
     override fun encode(source: ByteArray): String = Base64.getEncoder().encodeToString(source)

@@ -7,9 +7,9 @@ import java.security.SecureRandom
 import java.util.*
 import kotlin.text.Charsets.UTF_8
 
-abstract class AesGcmCipherImplTest {
+abstract class PasswordCipherImplTest {
 
-    abstract fun subject(): AesGcmCipher
+    abstract fun subject(): PasswordCipher
 
     @Test
     fun shouldEncryptAndDecrypt() {

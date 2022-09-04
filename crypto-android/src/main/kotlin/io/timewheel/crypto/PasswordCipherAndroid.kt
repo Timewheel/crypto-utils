@@ -3,9 +3,9 @@ package io.timewheel.crypto
 import android.util.Base64
 
 /**
- * Implementation
+ * Creates a pre Android API 26 [PasswordCipher] builder.
  */
-fun AesGcmCipher.Companion.build(block: AesGcmCipher.Builder.() -> Unit) = build(Base64CoderAndroid(), block)
+fun PasswordCipher.Companion.build(block: PasswordCipher.Builder.() -> Unit) = build(Base64CoderAndroid(), block)
 
 /**
  * Pre Android API 26 implementation of [Base64Coder]. For API 26+ use the jvm implementation.

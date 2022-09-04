@@ -44,7 +44,7 @@ private const val CURRENT_OUTPUT_VERSION = V1
  * results should the lengths need changed at some point in the future.
  */
 // @AnyThread // Stateless
-interface AesGcmCipher {
+interface PasswordCipher {
     /**
      * Encrypts a single [input] string using a [password].
      */
@@ -83,7 +83,7 @@ interface AesGcmCipher {
     }
 
     /**
-     * Builds instances of [AesGcmCipher].
+     * Builds instances of [PasswordCipher].
      */
     class Builder internal constructor(private val base64Coder: Base64Coder){
         private var saltLength = DEFAULT_SALT_LENGTH_BYTES
@@ -112,7 +112,7 @@ interface AesGcmCipher {
             this.tagLength = tagLength
         }
 
-        fun build(): AesGcmCipher = AesGcmCipherImpl(
+        fun build(): PasswordCipher = AesGcmCipherImpl(
             base64Coder,
             Algorithm.GcmNoPadding,
             saltLength,
@@ -154,7 +154,7 @@ interface AesGcmCipher {
     }
 
     companion object {
-        fun build(base64Coder: Base64Coder, block: (Builder.() -> Unit)): AesGcmCipher {
+        fun build(base64Coder: Base64Coder, block: (Builder.() -> Unit)): PasswordCipher {
             // NOTE: AesGcmCipherBuilderImpl is defined by sourcing modules to provide a
             // platform specific implementation of Base64Coder.
             val builder = Builder(base64Coder)
@@ -168,13 +168,13 @@ interface AesGcmCipher {
 // @VisibleForTesting
 internal class AesGcmCipherImpl constructor(
     private val coder: Base64Coder,
-    private val algorithm: AesGcmCipher.Algorithm,
+    private val algorithm: PasswordCipher.Algorithm,
     private val saltLengthBytes: Int,
     private val ivLengthBytes: Int,
     private val iterationCount: Int,
     private val keyLengthBits: Int,
     private val tagLengthBits: Int
-): AesGcmCipher {
+): PasswordCipher {
     override fun encrypt(input: String, password: String): String {
         return encrypt(listOf(input), password).first()
     }
@@ -260,7 +260,7 @@ internal class AesGcmCipherImpl constructor(
         // Decode Algorithm
         val algorithmBytes = ByteArray(buffer.int)
         buffer.get(algorithmBytes)
-        val algorithm = AesGcmCipher.Algorithm.fromString(algorithmBytes.toString(UTF_8))
+        val algorithm = PasswordCipher.Algorithm.fromString(algorithmBytes.toString(UTF_8))
             ?: return DecryptionResult.Failed(DecryptionError.BadFormat)
 
         // Create the cipher for the algorithm
@@ -302,8 +302,7 @@ internal class AesGcmCipherImpl constructor(
     /**
      * Creates a random nonce of the specified byte length.
      */
-    //@VisibleForTesting // I have some tests that check the behavior of encoding and decoding
-    internal fun getRandomNonce(numBytes: Int) = ByteArray(numBytes).apply {
+    private fun getRandomNonce(numBytes: Int) = ByteArray(numBytes).apply {
         SecureRandom().nextBytes(this)
     }
 
@@ -322,7 +321,7 @@ internal class AesGcmCipherImpl constructor(
 }
 
 /**
- * Result from [AesGcmCipher.decrypt]. Can be one of the following:
+ * Result from [PasswordCipher.decrypt]. Can be one of the following:
  * - [Success]: when the decryption succeeds. Includes the [Success.result].
  * - [Failed]: when the decryption fails. Includes the [Failed.error].
  */

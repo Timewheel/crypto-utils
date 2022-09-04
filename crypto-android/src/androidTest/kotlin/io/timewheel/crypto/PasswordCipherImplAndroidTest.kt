@@ -5,12 +5,12 @@ import org.junit.Before
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
-class AesGcmCipherImplAndroidTest : AesGcmCipherImplTest() {
-    private lateinit var subject: AesGcmCipher
+class PasswordCipherImplAndroidTest : PasswordCipherImplTest() {
+    private lateinit var subject: PasswordCipher
 
     @Before
     fun setUp() {
-        subject = AesGcmCipher.build { }
+        subject = PasswordCipher.build { }
     }
 
     override fun subject() = subject
