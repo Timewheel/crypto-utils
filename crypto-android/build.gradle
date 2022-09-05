@@ -35,7 +35,7 @@ android {
 }
 
 dependencies {
-    implementation project(":crypto-common")
+    api project(":crypto-common")
 
     androidTestImplementation project(":crypto-testlib")
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
