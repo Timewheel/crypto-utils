@@ -33,12 +33,12 @@ interface PasswordKeyGenerator {
      * Options for key generation. Includes de following:
      *
      * - [algorithm]: the algorithm to use to generate the key.
-     * - [saltLengthBytes]: the length of the salt in bytes.
+     * - [saltProvider]: a [SaltProvider].
      * - [iterationCount]: the
      */
     class Options(
         val algorithm: Algorithm = DEFAULT_ALGORITHM,
-        val saltLengthBytes: Int = DEFAULT_SALT_LENGTH_BYTES,
+        val saltProvider: SaltProvider = RandomSaltGenerator.ofSaltLength(DEFAULT_SALT_LENGTH_BYTES),
         val iterationCount: Int = DEFAULT_ITERATION_COUNT
     ) {
         companion object {
@@ -70,13 +70,6 @@ class PasswordKeyGeneratorImpl : PasswordKeyGenerator {
     ) : Result<PasswordKeyGenerator.Data, PasswordKeyGenerator.Error> {
 
         // Validation
-        if (options.saltLengthBytes < 0) {
-            return Result.Fail(PasswordKeyGenerator.Error.InvalidArgument(
-                "saltLengthBytes",
-                "${options.saltLengthBytes}",
-                ">= 0"
-            ))
-        }
         if (options.iterationCount < 0) {
             return Result.Fail(PasswordKeyGenerator.Error.InvalidArgument(
                 "iterationCount",
@@ -93,7 +86,7 @@ class PasswordKeyGeneratorImpl : PasswordKeyGenerator {
         }
 
         // Generate the key
-        val salt = getRandomNonce(options.saltLengthBytes)
+        val salt = options.saltProvider.provideSalt()
         val passwordKeySpec = PBEKeySpec(
             password.toCharArray(),
             salt,
