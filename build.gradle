@@ -11,6 +11,34 @@ ext.artifact = [
         'version': "0.1.0"
 ]
 
+ext.versions = [
+        'test': [
+                'junit5': [
+                        'jupiter':'5.9.0'
+                ],
+                'mockito': '4.8.0',
+                'mockitoKotlin': '4.0.0',
+        ]
+]
+
+ext.deps = [
+        'test': [
+                'junit5': [
+                        'jupiter': [
+                                'api': "org.junit.jupiter:junit-jupiter-api:${versions.test.junit5.jupiter}",
+                                'engine': "org.junit.jupiter:junit-jupiter-engine:${versions.test.junit5.jupiter}",
+                                'params': "org.junit.jupiter:junit-jupiter-params:${versions.test.junit5.jupiter}"
+                        ]
+                ],
+                'mockito': [
+                        'android': "org.mockito:mockito-android:${versions.test.mockito}",
+                        'core': "org.mockito:mockito-core:${versions.test.mockito}",
+                        'junitJupiter': "org.mockito:mockito-junit-jupiter:${versions.test.mockito}"
+                ],
+                'mockitoKotlin': "org.mockito.kotlin:mockito-kotlin:${versions.test.mockitoKotlin}"
+        ]
+]
+
 task clean(type: Delete) {
     delete rootProject.buildDir
 }

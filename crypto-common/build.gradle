@@ -11,4 +11,15 @@ java {
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib:1.7.10"
     api project(":timewheel-util")
+
+    testImplementation deps.test.junit5.jupiter.api
+    testRuntimeOnly deps.test.junit5.jupiter.engine
+    testImplementation deps.test.junit5.jupiter.params
+    testImplementation deps.test.mockito.core
+    testImplementation deps.test.mockito.junitJupiter
+    testImplementation deps.test.mockitoKotlin
+}
+
+tasks.withType(Test) {
+    useJUnitPlatform()
 }
