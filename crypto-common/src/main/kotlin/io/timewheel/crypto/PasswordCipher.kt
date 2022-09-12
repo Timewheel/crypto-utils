@@ -1,17 +1,16 @@
 package io.timewheel.crypto
 
+import io.timewheel.crypto.DecryptionError.*
+import io.timewheel.crypto.DecryptionResult.Failed
+import io.timewheel.crypto.DecryptionResult.Success
+import io.timewheel.util.Result
 import java.nio.ByteBuffer
 import java.security.NoSuchAlgorithmException
-import java.security.SecureRandom
 import java.security.spec.InvalidKeySpecException
-import javax.crypto.AEADBadTagException
-import javax.crypto.Cipher
-import javax.crypto.SecretKey
-import javax.crypto.SecretKeyFactory
+import javax.crypto.*
 import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
-import kotlin.Exception
 import kotlin.text.Charsets.UTF_8
 
 /**
@@ -39,48 +38,45 @@ private const val CURRENT_OUTPUT_VERSION = V1
  * - Next n bytes will be the IV.
  * - 4 bytes with the tag length.
  * - The remaining bytes will be the cipher text.
- *
- * The lengths of the salt, key, and IV as well as the iteration count are encoded into the
- * results should the lengths need changed at some point in the future.
  */
 // @AnyThread // Stateless
 interface PasswordCipher {
     /**
      * Encrypts a single [input] string using a [password].
      */
-    fun encrypt(input: String, password: String): String
+    fun encrypt(input: String, password: String, options: Options): Result<String, EncryptionError>
 
     /**
      * Encrypts a list of [input] strings with a [password].
      */
-    fun encrypt(input: List<String>, password: String): List<String>
+    fun encrypt(input: List<String>, password: String, options: Options): List<Result<String, EncryptionError>>
 
     /**
      * Decrypts an [input] string that was produced with the [encrypt] method using a [password].
      * Returns a [DecryptionResult].
      */
-    fun decrypt(input: String, password: String): DecryptionResult
+    fun decrypt(input: String, password: String): Result<String, DecryptionError>
 
     /**
      * Supported AES algorithms.
      */
-    enum class Algorithm(internal val algorithmString: String) {
-        /**
-         * Galois Counting Mode with no padding.
-         */
-        GcmNoPadding("AES/GCM/NoPadding");
-
-        companion object {
-            internal fun fromString(algorithmString: String): Algorithm? {
-                for (algorithm in values()) {
-                    if (algorithm.algorithmString == algorithmString) {
-                        return algorithm
-                    }
-                }
-                return null
-            }
-        }
-    }
+//    enum class Algorithm(internal val algorithmString: String) {
+//        /**
+//         * Galois Counting Mode with no padding.
+//         */
+//        GcmNoPadding("AES/GCM/NoPadding");
+//
+//        companion object {
+//            internal fun fromString(algorithmString: String): Algorithm? {
+//                for (algorithm in values()) {
+//                    if (algorithm.algorithmString == algorithmString) {
+//                        return algorithm
+//                    }
+//                }
+//                return null
+//            }
+//        }
+//    }
 
     /**
      * Builds instances of [PasswordCipher].
@@ -112,9 +108,10 @@ interface PasswordCipher {
             this.tagLength = tagLength
         }
 
-        fun build(): PasswordCipher = AesGcmCipherImpl(
+        fun build(): PasswordCipher = PasswordCipherImpl(
             base64Coder,
-            Algorithm.GcmNoPadding,
+            PasswordKeyGeneratorImpl(),
+            AES.default(),
             saltLength,
             ivLength,
             iterationCount,
@@ -153,6 +150,11 @@ interface PasswordCipher {
         }
     }
 
+    data class Options(
+        val algorithm: EncryptionAlgorithm,
+        val keyGenerationOptions: PasswordKeyGenerator.Options
+    )
+
     companion object {
         fun build(base64Coder: Base64Coder, block: (Builder.() -> Unit)): PasswordCipher {
             // NOTE: AesGcmCipherBuilderImpl is defined by sourcing modules to provide a
@@ -161,110 +163,148 @@ interface PasswordCipher {
             block(builder)
             return builder.build()
         }
+
+        // fun newInstance(coder: Base64Coder): PasswordCipher = PasswordCipherImpl(coder)
     }
 }
 
 // @AnyThread // Stateless
 // @VisibleForTesting
-internal class AesGcmCipherImpl constructor(
+internal class PasswordCipherImpl internal constructor(
     private val coder: Base64Coder,
-    private val algorithm: PasswordCipher.Algorithm,
+    private val passwordKeyGenerator: PasswordKeyGenerator,
+    private val algorithm: EncryptionAlgorithm,
     private val saltLengthBytes: Int,
     private val ivLengthBytes: Int,
     private val iterationCount: Int,
     private val keyLengthBits: Int,
     private val tagLengthBits: Int
 ): PasswordCipher {
-    override fun encrypt(input: String, password: String): String {
-        return encrypt(listOf(input), password).first()
+    override fun encrypt(input: String, password: String, options: PasswordCipher.Options): Result<String, EncryptionError> {
+        return encrypt(listOf(input), password, options).first()
     }
 
-    override fun encrypt(input: List<String>, password: String): List<String> {
-        val cipher: Cipher = Cipher.getInstance(algorithm.algorithmString)
+    override fun encrypt(input: List<String>, password: String, options: PasswordCipher.Options): List<Result<String, EncryptionError>> {
+        val cipher: Cipher = try {
+            Cipher.getInstance(algorithm.transformation())
+        } catch (x: NoSuchAlgorithmException) {
+            return listOf(Result.Fail(EncryptionError.AlgorithmNotSupported(options.algorithm)))
+        } catch (x: NoSuchPaddingException) {
+            return listOf(Result.Fail(EncryptionError.AlgorithmNotSupported(options.algorithm)))
+        }
 
-        return mutableListOf<String>().apply {
-            input.forEach {
-                // Salt and initialization vector
-                val salt = getRandomNonce(saltLengthBytes)
-                val iv = getRandomNonce(ivLengthBytes)
-
+        return mutableListOf<Result<String, EncryptionError>>().apply {
+            for (cleartext in input) {
                 // Secret key from password
-                val aesKeyFromPassword = getAESKeyFromPassword(
-                    password.toCharArray(),
-                    salt,
-                    iterationCount,
-                    keyLengthBits
+                val keygenResult = passwordKeyGenerator.generateKey(
+                    password,
+                    algorithm,
+                    options.keyGenerationOptions
                 )
 
-                // AES-GCM needs GCMParameterSpec
-                cipher.init(Cipher.ENCRYPT_MODE, aesKeyFromPassword, GCMParameterSpec(tagLengthBits, iv))
-
-                // Encrypt the input
-                val cipherText = cipher.doFinal(it.toByteArray(UTF_8))
-
-                val algorithmBytes = algorithm.algorithmString.toByteArray(UTF_8)
-
-                // Calculate the buffer size
-                val bufferSize =
-                    // Version length
-                    Int.SIZE_BYTES +
-                    // Algorithm string length and the string as bytes
-                    Int.SIZE_BYTES +
-                    algorithmBytes.size +
-                    // Salt length and salt
-                    Int.SIZE_BYTES +
-                    salt.size +
-                    // Iteration count, key length
-                    2 * Int.SIZE_BYTES +
-                    // IV length and IV
-                    Int.SIZE_BYTES +
-                    iv.size +
-                    // Tag length
-                    Int.SIZE_BYTES +
-                    // Cipher text size
-                    cipherText.size
-
-                // Encode the result
-                val result = ByteBuffer.allocate(bufferSize)
-                    .putInt(CURRENT_OUTPUT_VERSION)
-                    .putInt(algorithmBytes.size)
-                    .put(algorithmBytes)
-                    .putInt(saltLengthBytes)
-                    .put(salt)
-                    .putInt(iterationCount)
-                    .putInt(keyLengthBits)
-                    .putInt(ivLengthBytes)
-                    .put(iv)
-                    .putInt(tagLengthBits)
-                    .put(cipherText)
-                    .array()
-
-                // Add the result to the output
-                add(coder.encode(result))
+                // Key generation failed, add a fail result and continue
+                when (keygenResult) {
+                    is Result.Fail -> {
+                        keygenResult.error.let {
+                            add(Result.Fail(
+                                when (it) {
+                                    is PasswordKeyGenerator.Error.InvalidArgument -> {
+                                        EncryptionError.InvalidArgument(
+                                            "keyGenerationOptions.${it.argumentName}",
+                                            it.value,
+                                            it.requirement
+                                        )
+                                    }
+                                    is PasswordKeyGenerator.Error.AlgorithmNotSupported -> {
+                                        EncryptionError.KeyGenerationAlgorithmNotSupported(it.algorithm)
+                                    }
+                                }
+                            ))
+                        }
+                    }
+                    is Result.Success -> {
+                        add(encrypt(cipher, cleartext, keygenResult.result, options.algorithm))
+                    }
+                }
             }
         }.toList()
     }
 
-    override fun decrypt(input: String, password: String): DecryptionResult {
+    private fun encrypt(
+        cipher: Cipher,
+        input: String,
+        keyData: PasswordKeyGenerator.Data,
+        algorithm: EncryptionAlgorithm
+    ): Result<String, EncryptionError> {
+        // Initialization vector
+        val iv = getRandomNonce(ivLengthBytes)
+
+        // AES-GCM needs GCMParameterSpec
+        cipher.init(Cipher.ENCRYPT_MODE, keyData.keySpec, GCMParameterSpec(tagLengthBits, iv))
+
+        // Encrypt the input
+        val cipherText = cipher.doFinal(input.toByteArray(UTF_8))
+
+        val algorithmBytes = algorithm.transformation().toByteArray(UTF_8)
+
+        // Calculate the buffer size
+        val bufferSize =
+            // Version length
+            Int.SIZE_BYTES +
+                // Algorithm string length and the string as bytes
+                Int.SIZE_BYTES +
+                algorithmBytes.size +
+                // Salt length and salt
+                Int.SIZE_BYTES +
+                keyData.salt.size +
+                // Iteration count, key length
+                2 * Int.SIZE_BYTES +
+                // IV length and IV
+                Int.SIZE_BYTES +
+                iv.size +
+                // Tag length
+                Int.SIZE_BYTES +
+                // Cipher text size
+                cipherText.size
+
+        // Encode the result
+        val result = ByteBuffer.allocate(bufferSize)
+            .putInt(CURRENT_OUTPUT_VERSION)
+            .putInt(algorithmBytes.size)
+            .put(algorithmBytes)
+            .putInt(saltLengthBytes)
+            .put(keyData.salt)
+            .putInt(iterationCount)
+            .putInt(keyLengthBits)
+            .putInt(ivLengthBytes)
+            .put(iv)
+            .putInt(tagLengthBits)
+            .put(cipherText)
+            .array()
+
+        // Add the result to the output
+        return Result.Success(coder.encode(result))
+    }
+
+    override fun decrypt(input: String, password: String): Result<String, DecryptionError> {
         // Decode the base 64 input
         val buffer = ByteBuffer.wrap(coder.decode(input))
 
         // Decode version
         return when (buffer.int) {
             V1 -> decryptV1(buffer, password)
-            else -> DecryptionResult.Failed(DecryptionError.BadFormat)
+            else -> Result.Fail(BadFormat)
         }
     }
 
-    private fun decryptV1(buffer: ByteBuffer, password: String): DecryptionResult {
+    private fun decryptV1(buffer: ByteBuffer, password: String): Result<String, DecryptionError> {
         // Decode Algorithm
         val algorithmBytes = ByteArray(buffer.int)
         buffer.get(algorithmBytes)
-        val algorithm = PasswordCipher.Algorithm.fromString(algorithmBytes.toString(UTF_8))
-            ?: return DecryptionResult.Failed(DecryptionError.BadFormat)
-
-        // Create the cipher for the algorithm
-        val cipher: Cipher = Cipher.getInstance(algorithm.algorithmString)
+        val algorithmString = algorithmBytes.toString(UTF_8)
+        if (algorithmString != "AES/GCM/NoPadding") {
+            return Result.Fail(BadFormat)
+        }
 
         // Decode Salt and IV
         val salt = ByteArray(buffer.int)
@@ -284,26 +324,22 @@ internal class AesGcmCipherImpl constructor(
         buffer.get(iv)
 
         val tagLengthBits = buffer.int
-        cipher.init(Cipher.DECRYPT_MODE, aesKeyFromPassword, GCMParameterSpec(tagLengthBits, iv))
 
         val cipherText = ByteArray(buffer.remaining())
         buffer.get(cipherText)
 
+        // Create the cipher for the algorithm
+        val cipher: Cipher = Cipher.getInstance(algorithmString)
+        cipher.init(Cipher.DECRYPT_MODE, aesKeyFromPassword, GCMParameterSpec(tagLengthBits, iv))
+
         return try {
-            DecryptionResult.Success(cipher.doFinal(cipherText).toString(UTF_8))
+            Result.Success(cipher.doFinal(cipherText).toString(UTF_8))
         } catch (exception: Exception) {
             when (exception) {
-                is AEADBadTagException -> DecryptionResult.Failed(DecryptionError.WrongPassword)
-                else -> DecryptionResult.Failed(DecryptionError.Other(exception))
+                is AEADBadTagException -> Result.Fail(WrongPassword)
+                else -> Result.Fail(Other(exception))
             }
         }
-    }
-
-    /**
-     * Creates a random nonce of the specified byte length.
-     */
-    private fun getRandomNonce(numBytes: Int) = ByteArray(numBytes).apply {
-        SecureRandom().nextBytes(this)
     }
 
     // AES secret key derived from a password
@@ -328,6 +364,12 @@ internal class AesGcmCipherImpl constructor(
 sealed class DecryptionResult {
     data class Success(val result: String) : DecryptionResult()
     data class Failed(val error: DecryptionError) : DecryptionResult()
+}
+
+sealed class EncryptionError {
+    data class InvalidArgument(val argumentName: String, val value: String, val requirement: String) : EncryptionError()
+    data class AlgorithmNotSupported(val algorithm: EncryptionAlgorithm) : EncryptionError()
+    data class KeyGenerationAlgorithmNotSupported(val algorithm: PasswordKeyGenerator.Algorithm) : EncryptionError()
 }
 
 /**

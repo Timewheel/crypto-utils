@@ -1,5 +1,6 @@
 package io.timewheel.crypto
 
+import io.timewheel.util.Result
 import org.junit.Assert.*
 import org.junit.Test
 import java.nio.ByteBuffer
@@ -18,11 +19,15 @@ abstract class PasswordCipherImplTest {
         val password = "abc123"
 
         // When
-        val encryptionResult = subject().encrypt(input, password)
-        val decryptionResult = subject().decrypt(encryptionResult, password)
+        val encryptionResult = subject().encrypt(
+            input,
+            password,
+            PasswordCipher.Options(AES.default(), PasswordKeyGenerator.Options())
+        )
+        val decryptionResult = subject().decrypt((encryptionResult as Result.Success).result, password)
 
         // Then
-        assertEquals(input, (decryptionResult as DecryptionResult.Success).result)
+        assertEquals(input, (decryptionResult as Result.Success).result)
     }
 
     @Test
@@ -36,9 +41,14 @@ abstract class PasswordCipherImplTest {
         val password = "123abc"
 
         // When
-        val encryptionResults = subject().encrypt(input, password)
-        val decryptionResults = encryptionResults.map { subject().decrypt(it, password) }
-            .map { it as DecryptionResult.Success }
+        val encryptionResults = subject().encrypt(
+            input,
+            password,
+            PasswordCipher.Options(AES.default(), PasswordKeyGenerator.Options())
+        )
+        val decryptionResults = encryptionResults.map { it as Result.Success }
+            .map { subject().decrypt(it.result, password) }
+            .map { it as Result.Success }
             .map { it.result }
 
         // Then
@@ -57,20 +67,24 @@ abstract class PasswordCipherImplTest {
         val result = subject().decrypt(base64Input, "")
 
         // Then
-        assertEquals(DecryptionResult.Failed(DecryptionError.BadFormat), result)
+        assertEquals(Result.Fail(DecryptionError.BadFormat), result)
     }
 
     @Test
     fun decrypt_shouldErrorOutWithDifferentPasswords() {
         // Given
         val input = randomString(128)
-        val encryptionResult = subject().encrypt(input, "abc123")
+        val encryptionResult = subject().encrypt(
+            input,
+            "abc123",
+            PasswordCipher.Options(AES.default(), PasswordKeyGenerator.Options())
+        )
 
         // When
-        val decryptionResult = subject().decrypt(encryptionResult, "123abc")
+        val decryptionResult = subject().decrypt((encryptionResult as Result.Success).result, "123abc")
 
         // Then
-        assertEquals(DecryptionResult.Failed(DecryptionError.WrongPassword), decryptionResult)
+        assertEquals(Result.Fail(DecryptionError.WrongPassword), decryptionResult)
     }
 
     @Test

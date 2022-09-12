@@ -15,6 +15,7 @@
             <option value="$PROJECT_DIR$/crypto-common" />
             <option value="$PROJECT_DIR$/crypto-testlib" />
             <option value="$PROJECT_DIR$/sample-app" />
+            <option value="$PROJECT_DIR$/timewheel-util" />
           </set>
         </option>
       </GradleProjectSettings>
