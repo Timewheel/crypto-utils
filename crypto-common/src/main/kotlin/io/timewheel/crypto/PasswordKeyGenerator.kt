@@ -22,11 +22,15 @@ interface PasswordKeyGenerator {
     ) : Result<Data, Error>
 
     /**
-     * Algorithms to generate keys from passwords with. Currently supports the following:
+     * Algorithms to generate keys from passwords with. Currently supports the following out of
+     * the box:
      *
-     * - [PBKDF2WithHmacSHA256]: PBKDF2, Hmac SHA-256
+     * - [PBKDF2WithHmacSHA256]: PBKDF2, Hmac SHA-256.
+     *
+     * This class is extensible; it can be subclassed, providing the algorithm [name] as taken by
+     * [SecretKeyFactory.getInstance], to use a custom algorithm to generate a key from a password.
      */
-    sealed class Algorithm(internal val name: String) {
+    abstract class Algorithm(val name: String) {
         object PBKDF2WithHmacSHA256 : Algorithm("PBKDF2WithHmacSHA256")
     }
 
