@@ -26,7 +26,7 @@ class PasswordKeyGeneratorImplTest {
     @Test
     fun onGenerateKey_withNegativeIterationCount_fails() {
         // Given
-        val options = PasswordKeyGenerator.Options(iterationCount = -1)
+        val options = PasswordKeyGenerator.Options(iterationCount = 1000)
 
         // When
         val result = subject.generateKey("", options)
@@ -36,7 +36,7 @@ class PasswordKeyGeneratorImplTest {
             PasswordKeyGenerator.Error.InvalidArgument(
                 "iterationCount",
                 "${options.iterationCount}",
-                ">=0"
+                ">1000"
             ),
             (result as Result.Fail).error
         )

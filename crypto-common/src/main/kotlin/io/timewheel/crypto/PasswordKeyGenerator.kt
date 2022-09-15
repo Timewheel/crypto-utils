@@ -95,11 +95,11 @@ internal class PasswordKeyGeneratorImpl(
     ) : Result<PasswordKeyGenerator.ResultData, PasswordKeyGenerator.Error> {
 
         // Validation
-        if (options.iterationCount < 0) {
+        if (options.iterationCount <= 1000) {
             return Result.Fail(PasswordKeyGenerator.Error.InvalidArgument(
                 "iterationCount",
                 "${options.iterationCount}",
-                ">=0"
+                ">1000"
             ))
         }
         if (options.keyLength <= 0 || options.keyLength % 8 != 0) {
