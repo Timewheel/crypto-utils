@@ -36,8 +36,8 @@ interface PasswordKeyGenerator {
      *
      * - [algorithm]: the algorithm to use to generate the key.
      * - [saltProvider]: a [SaltProvider].
-     * - [iterationCount]: the number of iterations
-     * - [keyLength]: the length of the key in bits.
+     * - [iterationCount]: the number of iterations the password is hashed to get the key.
+     * - [keyLength]: the length of the resulting key in bits.
      */
     class Options(
         val algorithm: Algorithm = DEFAULT_ALGORITHM,
@@ -62,8 +62,19 @@ interface PasswordKeyGenerator {
         val salt: ByteArray
     )
 
+    /**
+     * Errors that could arise in the process of generating a key from a password.
+     */
     sealed class Error {
+        /**
+         * One of the supplied arguments was invalid. Provides the [argumentName] as well as the
+         * [value] and the [requirement].
+         */
         data class InvalidArgument(val argumentName: String, val value: String, val requirement: String) : Error()
+
+        /**
+         * The requested [algorithm] to generate a key is not supported.
+         */
         data class AlgorithmNotSupported(val algorithm: Algorithm) : Error()
     }
 
