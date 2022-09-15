@@ -232,7 +232,7 @@ internal class PasswordCipherImpl internal constructor(
     private fun encrypt(
         cipher: Cipher,
         input: String,
-        keyData: PasswordKeyGenerator.Result,
+        keyData: PasswordKeyGenerator.ResultData,
         algorithm: EncryptionAlgorithm
     ): Result<String, EncryptionError> {
         // Initialization vector

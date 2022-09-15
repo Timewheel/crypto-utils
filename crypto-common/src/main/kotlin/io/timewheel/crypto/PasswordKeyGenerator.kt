@@ -13,10 +13,7 @@ interface PasswordKeyGenerator {
     /**
      * Generates a key from a [password] using the parameters specified in [options].
      */
-    fun generateKey(
-        password: String,
-        options: Options
-    ) : io.timewheel.util.Result<Result, Error>
+    fun generateKey(password: String, options: Options) : Result<ResultData, Error>
 
     /**
      * Algorithms to generate keys from passwords with. Currently supports the following out of
@@ -57,7 +54,7 @@ interface PasswordKeyGenerator {
      * Result of generating a key from a password. Includes the [key] as well as the [salt], just
      * in case the default or another random salt provider was used.
      */
-    class Result(
+    class ResultData(
         val key: ByteArray,
         val salt: ByteArray
     )
@@ -95,7 +92,7 @@ internal class PasswordKeyGeneratorImpl(
     override fun generateKey(
         password: String,
         options: PasswordKeyGenerator.Options
-    ) : Result<PasswordKeyGenerator.Result, PasswordKeyGenerator.Error> {
+    ) : Result<PasswordKeyGenerator.ResultData, PasswordKeyGenerator.Error> {
 
         // Validation
         if (options.iterationCount < 0) {
@@ -137,7 +134,7 @@ internal class PasswordKeyGeneratorImpl(
         ).encoded
 
         // Return success data
-        return Result.Success(PasswordKeyGenerator.Result(key, salt))
+        return Result.Success(PasswordKeyGenerator.ResultData(key, salt))
     }
 }
 
