@@ -198,7 +198,6 @@ internal class PasswordCipherImpl internal constructor(
                 // Secret key from password
                 val keygenResult = passwordKeyGenerator.generateKey(
                     password,
-                    algorithm,
                     options.keyGenerationOptions
                 )
 
@@ -233,14 +232,14 @@ internal class PasswordCipherImpl internal constructor(
     private fun encrypt(
         cipher: Cipher,
         input: String,
-        keyData: PasswordKeyGenerator.Data,
+        keyData: PasswordKeyGenerator.Result,
         algorithm: EncryptionAlgorithm
     ): Result<String, EncryptionError> {
         // Initialization vector
         val iv = getRandomNonce(ivLengthBytes)
 
         // AES-GCM needs GCMParameterSpec
-        cipher.init(Cipher.ENCRYPT_MODE, keyData.keySpec, GCMParameterSpec(tagLengthBits, iv))
+        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(keyData.key, algorithm.name), GCMParameterSpec(tagLengthBits, iv))
 
         // Encrypt the input
         val cipherText = cipher.doFinal(input.toByteArray(UTF_8))

@@ -17,7 +17,7 @@ sealed class EncryptionAlgorithm(internal val name: String) {
     internal abstract fun mode(): String
 
     /**
-     * Key length for the algorithm.
+     * Key length in bits for the algorithm.
      */
     internal abstract fun keyLength(): Int
 }

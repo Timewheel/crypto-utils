@@ -4,7 +4,6 @@ import io.timewheel.util.Result
 import java.security.NoSuchAlgorithmException
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
-import javax.crypto.spec.SecretKeySpec
 import kotlin.jvm.Throws
 
 /**
@@ -12,14 +11,12 @@ import kotlin.jvm.Throws
  */
 interface PasswordKeyGenerator {
     /**
-     * Generates a key from a [password] for the requested [encryptionAlgorithm] and with the
-     * specified [options].
+     * Generates a key from a [password] using the parameters specified in [options].
      */
     fun generateKey(
         password: String,
-        encryptionAlgorithm: EncryptionAlgorithm,
         options: Options
-    ) : Result<Data, Error>
+    ) : io.timewheel.util.Result<Result, Error>
 
     /**
      * Algorithms to generate keys from passwords with. Currently supports the following out of
@@ -40,24 +37,28 @@ interface PasswordKeyGenerator {
      * - [algorithm]: the algorithm to use to generate the key.
      * - [saltProvider]: a [SaltProvider].
      * - [iterationCount]: the number of iterations
+     * - [keyLength]: the length of the key in bits.
      */
     class Options(
         val algorithm: Algorithm = DEFAULT_ALGORITHM,
         val saltProvider: SaltProvider = RandomSaltGenerator.ofSaltLength(DEFAULT_SALT_LENGTH_BYTES),
-        val iterationCount: Int = DEFAULT_ITERATION_COUNT
+        val iterationCount: Int = DEFAULT_ITERATION_COUNT,
+        val keyLength: Int = DEFAULT_KEY_LENGTH
     ) {
         companion object {
             val DEFAULT_ALGORITHM = Algorithm.PBKDF2WithHmacSHA256
             const val DEFAULT_SALT_LENGTH_BYTES = 16
             const val DEFAULT_ITERATION_COUNT = 65536
+            const val DEFAULT_KEY_LENGTH = 256
         }
     }
 
     /**
-     * Result of generating
+     * Result of generating a key from a password. Includes the [key] as well as the [salt], just
+     * in case the default or another random salt provider was used.
      */
-    class Data(
-        val keySpec: SecretKeySpec,
+    class Result(
+        val key: ByteArray,
         val salt: ByteArray
     )
 
@@ -82,9 +83,8 @@ internal class PasswordKeyGeneratorImpl(
 ) : PasswordKeyGenerator {
     override fun generateKey(
         password: String,
-        encryptionAlgorithm: EncryptionAlgorithm,
         options: PasswordKeyGenerator.Options
-    ) : Result<PasswordKeyGenerator.Data, PasswordKeyGenerator.Error> {
+    ) : Result<PasswordKeyGenerator.Result, PasswordKeyGenerator.Error> {
 
         // Validation
         if (options.iterationCount < 0) {
@@ -94,9 +94,21 @@ internal class PasswordKeyGeneratorImpl(
                 ">=0"
             ))
         }
+        if (options.keyLength <= 0 || options.keyLength % 8 != 0) {
+            // PBKeySpec will take a key of at least 8 bits and will generate a key even if the
+            // number of bits does not align with a whole number of bytes, flooring to the closest
+            // whole byte. The choice to throw an error here is that all these parameters must be
+            // chosen intentionally; passing a parameter that isn't a multiple of 8 implies that it
+            // wasn't chosen carefully enough and the choice must be revisited.
+            return Result.Fail(PasswordKeyGenerator.Error.InvalidArgument(
+                argumentName = "keyLength",
+                value = "${options.keyLength}",
+                requirement = "> 0 AND a multiple of 8"
+            ))
+        }
 
         // Create the factory first to fail fast
-        val factory: SecretKeyFactory = try {
+        val keyFactory: SecretKeyFactory = try {
             secretKeyFactoryProvider.provideSecretKeyFactory(options.algorithm)
         } catch (x: NoSuchAlgorithmException) {
             return Result.Fail(PasswordKeyGenerator.Error.AlgorithmNotSupported(options.algorithm))
@@ -104,19 +116,17 @@ internal class PasswordKeyGeneratorImpl(
 
         // Generate the key
         val salt = options.saltProvider.provideSalt()
-        val passwordKeySpec = PBEKeySpec(
-            password.toCharArray(),
-            salt,
-            options.iterationCount,
-            encryptionAlgorithm.keyLength()
-        )
-        val keySpec = SecretKeySpec(
-            factory.generateSecret(passwordKeySpec).encoded,
-            encryptionAlgorithm.name
-        )
+        val key = keyFactory.generateSecret(
+            PBEKeySpec(
+                password.toCharArray(),
+                salt,
+                options.iterationCount,
+                options.keyLength
+            )
+        ).encoded
 
         // Return success data
-        return Result.Success(PasswordKeyGenerator.Data(keySpec, salt))
+        return Result.Success(PasswordKeyGenerator.Result(key, salt))
     }
 }
 

@@ -25,16 +25,57 @@ class PasswordKeyGeneratorImplTest {
 
     @Test
     fun onGenerateKey_withNegativeIterationCount_fails() {
+        // Given
+        val options = PasswordKeyGenerator.Options(iterationCount = -1)
+
         // When
-        val result = subject.generateKey(
-            "",
-            AES.default(),
-            PasswordKeyGenerator.Options(iterationCount = -1)
-        )
+        val result = subject.generateKey("", options)
 
         // Then
         assertEquals(
-            PasswordKeyGenerator.Error.InvalidArgument("iterationCount", "-1", ">=0"),
+            PasswordKeyGenerator.Error.InvalidArgument(
+                "iterationCount",
+                "${options.iterationCount}",
+                ">=0"
+            ),
+            (result as Result.Fail).error
+        )
+    }
+
+    @Test
+    fun onGenerateKey_withNegativeKeyLength_fails() {
+        // Given
+        val options = PasswordKeyGenerator.Options(keyLength = 0)
+
+        // When
+        val result = subject.generateKey("", options)
+
+        // Then
+        assertEquals(
+            PasswordKeyGenerator.Error.InvalidArgument(
+                "keyLength",
+                "${options.keyLength}",
+                "> 0 AND a multiple of 8"
+            ),
+            (result as Result.Fail).error
+        )
+    }
+
+    @Test
+    fun onGenerateKey_withNonWholeBitCount_fails() {
+        // Given
+        val options = PasswordKeyGenerator.Options(keyLength = 6)
+
+        // When
+        val result = subject.generateKey("", options)
+
+        // Then
+        assertEquals(
+            PasswordKeyGenerator.Error.InvalidArgument(
+                "keyLength",
+                "${options.keyLength}",
+                "> 0 AND a multiple of 8"
+            ),
             (result as Result.Fail).error
         )
     }
@@ -48,7 +89,6 @@ class PasswordKeyGeneratorImplTest {
         // When
         val result = subject.generateKey(
             "",
-            AES.default(),
             PasswordKeyGenerator.Options(algorithm = algorithm)
         )
 
@@ -67,52 +107,48 @@ class PasswordKeyGeneratorImplTest {
         val options = PasswordKeyGenerator.Options(saltProvider = StaticSaltProvider(salt))
 
         // When
-        val data = subject.generateKey("abcABC_123", AES.default(), options)
+        val data = subject.generateKey("abcABC_123", options)
 
         // Then
         assertArrayEquals(salt, (data as Result.Success).result.salt)
     }
 
     @Test
-    fun onGenerateKey_deliversKeySpecWithKey() {
+    fun onGenerateKey_deliversResultWithKeyOfRequestedLength() {
+        // Given
+        secretKeyFactoryProviderFixture.useReal()
+        val keyLength = 128
+        val options = PasswordKeyGenerator.Options(keyLength = keyLength)
+
+        // When
+        val data = subject.generateKey("abcABC_123", options)
+
+        // Then
+        assertEquals(keyLength, (data as Result.Success).result.key.size*8)
+    }
+
+    @Test
+    fun onGenerateKey_deliversResultWithKey() {
         // Given
         secretKeyFactoryProviderFixture.useReal()
         val password = "abcABC_123"
-        val encryptionAlgorithm = AES.default()
         val salt = getRandomNonce(12)
         val options = PasswordKeyGenerator.Options(saltProvider = StaticSaltProvider(salt))
         val passwordKeySpec = PBEKeySpec(
             password.toCharArray(),
             salt,
             options.iterationCount,
-            encryptionAlgorithm.keyLength()
+            options.keyLength
         )
         val key = secretKeyFactoryProviderFixture.getSecretKeyFactory(options.algorithm)
             .generateSecret(passwordKeySpec)
             .encoded
 
         // When
-        val data = subject.generateKey(password, encryptionAlgorithm, options)
+        val data = subject.generateKey(password, options)
 
         // Then
-        assertArrayEquals(key, (data as Result.Success).result.keySpec.encoded)
-    }
-
-    @Test
-    fun onGenerateKey_deliversKeySpecWithRequestedEncryptionAlgorithm() {
-        // Given
-        secretKeyFactoryProviderFixture.useReal()
-        val encryptionAlgorithm = AES.default()
-
-        // When
-        val data = subject.generateKey(
-            "abcABC_123",
-            encryptionAlgorithm,
-            PasswordKeyGenerator.Options()
-        )
-
-        // Then
-        assertEquals(encryptionAlgorithm.name, (data as Result.Success).result.keySpec.algorithm)
+        assertArrayEquals(key, (data as Result.Success).result.key)
     }
 
     class SecretKeyFactoryProviderFixture : SecretKeyFactoryProvider {
@@ -129,7 +165,7 @@ class PasswordKeyGeneratorImplTest {
             inUse = real
         }
 
-        fun useMock() {
+        private fun useMock() {
             inUse = mock
         }
 
