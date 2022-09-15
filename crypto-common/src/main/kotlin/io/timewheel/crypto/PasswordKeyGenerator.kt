@@ -5,6 +5,7 @@ import java.security.NoSuchAlgorithmException
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
 import javax.crypto.spec.SecretKeySpec
+import kotlin.jvm.Throws
 
 /**
  * Creates encryption keys from passwords.
@@ -34,7 +35,7 @@ interface PasswordKeyGenerator {
      *
      * - [algorithm]: the algorithm to use to generate the key.
      * - [saltProvider]: a [SaltProvider].
-     * - [iterationCount]: the
+     * - [iterationCount]: the number of iterations
      */
     class Options(
         val algorithm: Algorithm = DEFAULT_ALGORITHM,
@@ -60,9 +61,21 @@ interface PasswordKeyGenerator {
         data class InvalidArgument(val argumentName: String, val value: String, val requirement: String) : Error()
         data class AlgorithmNotSupported(val algorithm: Algorithm) : Error()
     }
+
+    companion object {
+        /**
+         * Creates a [PasswordKeyGenerator].
+         */
+        @JvmStatic
+        fun create(): PasswordKeyGenerator {
+            return PasswordKeyGeneratorImpl(SecretKeyFactoryProviderImpl())
+        }
+    }
 }
 
-class PasswordKeyGeneratorImpl : PasswordKeyGenerator {
+internal class PasswordKeyGeneratorImpl(
+    private val secretKeyFactoryProvider: SecretKeyFactoryProvider
+) : PasswordKeyGenerator {
     override fun generateKey(
         password: String,
         encryptionAlgorithm: EncryptionAlgorithm,
@@ -74,13 +87,13 @@ class PasswordKeyGeneratorImpl : PasswordKeyGenerator {
             return Result.Fail(PasswordKeyGenerator.Error.InvalidArgument(
                 "iterationCount",
                 "${options.iterationCount}",
-                ">= 0"
+                ">=0"
             ))
         }
 
         // Create the factory first to fail fast
         val factory: SecretKeyFactory = try {
-            SecretKeyFactory.getInstance(options.algorithm.name)
+            secretKeyFactoryProvider.provideSecretKeyFactory(options.algorithm)
         } catch (x: NoSuchAlgorithmException) {
             return Result.Fail(PasswordKeyGenerator.Error.AlgorithmNotSupported(options.algorithm))
         }
@@ -100,5 +113,26 @@ class PasswordKeyGeneratorImpl : PasswordKeyGenerator {
 
         // Return success data
         return Result.Success(PasswordKeyGenerator.Data(keySpec, salt))
+    }
+}
+
+/**
+ * Provides non-static access to [SecretKeyFactory].
+ */
+internal interface SecretKeyFactoryProvider {
+    /**
+     * Provides a [SecretKeyFactory] for the requested [algorithm].
+     */
+    @Throws(NoSuchAlgorithmException::class)
+    fun provideSecretKeyFactory(algorithm: PasswordKeyGenerator.Algorithm): SecretKeyFactory
+}
+
+/**
+ * Production implementation of [SecretKeyFactoryProvider]. Calls [SecretKeyFactory.getInstance].
+ */
+internal class SecretKeyFactoryProviderImpl : SecretKeyFactoryProvider {
+    @Throws(NoSuchAlgorithmException::class)
+    override fun provideSecretKeyFactory(algorithm: PasswordKeyGenerator.Algorithm): SecretKeyFactory {
+        return SecretKeyFactory.getInstance(algorithm.name)
     }
 }

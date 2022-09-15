@@ -110,7 +110,7 @@ interface PasswordCipher {
 
         fun build(): PasswordCipher = PasswordCipherImpl(
             base64Coder,
-            PasswordKeyGeneratorImpl(),
+            PasswordKeyGenerator.create(),
             AES.default(),
             saltLength,
             ivLength,

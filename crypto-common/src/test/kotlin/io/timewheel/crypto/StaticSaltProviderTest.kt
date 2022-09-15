@@ -5,7 +5,6 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.security.SecureRandom
 
-
 class StaticSaltProviderTest {
 
     private lateinit var subject: StaticSaltProvider

@@ -28,6 +28,8 @@ class RandomSaltGenerator private constructor(private val saltSizeBytes: Int) : 
     companion object {
         /**
          * Creates a [RandomSaltGenerator] providing salts of length [saltSizeBytes].
+         *
+         * @throws [IllegalArgumentException] if the salt length is negative.
          */
         @JvmStatic
         @Throws(IllegalArgumentException::class)
