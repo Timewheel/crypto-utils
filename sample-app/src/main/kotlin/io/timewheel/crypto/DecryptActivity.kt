@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import androidx.appcompat.app.AppCompatActivity
 import io.timewheel.crypto.databinding.ActivityDecryptBinding
+import io.timewheel.util.Result
 import java.util.concurrent.atomic.AtomicReference
 
 class DecryptActivity : AppCompatActivity() {
@@ -38,11 +39,11 @@ class DecryptActivity : AppCompatActivity() {
             Handler(Looper.getMainLooper()).post {
                 result.get().let { result ->
                     when (result) {
-                        is DecryptionResult.Success -> {
+                        is Result.Success -> {
                             binding.decryptOutput.text = "Decryption Success!\n" +
                                 "Original text: ${result.result}"
                         }
-                        is DecryptionResult.Failed -> {
+                        is Result.Fail -> {
                             val message = when (result.error) {
                                 is DecryptionError.BadFormat -> "Bad input format"
                                 is DecryptionError.WrongPassword -> "Wrong password"

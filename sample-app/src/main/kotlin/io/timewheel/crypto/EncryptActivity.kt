@@ -16,6 +16,7 @@ import io.timewheel.crypto.databinding.ActivityEncryptBinding
 import io.timewheel.crypto.databinding.ItemAddInputBinding
 import io.timewheel.crypto.databinding.ItemInputBinding
 import io.timewheel.crypto.databinding.ItemOutputBinding
+import io.timewheel.util.Result
 import java.util.concurrent.atomic.AtomicReference
 
 class SampleActivity : AppCompatActivity() {
@@ -62,9 +63,21 @@ class SampleActivity : AppCompatActivity() {
     private fun encryptInput() {
         val password = AtomicReference(binding.encryptPassword.editableText.toString())
         Thread {
-            val output = AtomicReference(cipher.get().encrypt(inputAdapter.input, password.get()))
+            val output = AtomicReference(cipher.get().encrypt(
+                inputAdapter.input,
+                password.get(),
+                PasswordCipher.Options(
+                    AES.default(),
+                    PasswordKeyGenerator.Options(
+                        RandomNonceGenerator.ofNonceSize(12),
+                        PasswordKeyGenerator.Algorithm.PBKDF2WithHmacSHA256,
+                        65536,
+                        256
+                    )
+                )
+            ))
             Handler(Looper.getMainLooper()).post {
-                outputAdapter.setOutput(output.get())
+                outputAdapter.setOutput(output.get().map { (it as Result.Success).result })
                 outputAdapter.notifyDataSetChanged()
             }
         }.start()

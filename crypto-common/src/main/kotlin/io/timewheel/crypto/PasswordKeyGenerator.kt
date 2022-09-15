@@ -31,13 +31,13 @@ interface PasswordKeyGenerator {
     /**
      * Options for key generation. Includes de following:
      *
-     * - [saltProvider]: a [SaltProvider].
+     * - [saltProvider]: a [NonceProvider].
      * - [algorithm]: the algorithm to use to generate the key.
      * - [iterationCount]: the number of iterations the password is hashed to get the key.
      * - [keyLength]: the length of the resulting key in bits.
      */
     class Options(
-        val saltProvider: SaltProvider,
+        val saltProvider: NonceProvider,
         val algorithm: Algorithm,
         val iterationCount: Int,
         val keyLength: Int
@@ -116,7 +116,7 @@ internal class PasswordKeyGeneratorImpl(
         }
 
         // Generate the key
-        val salt = options.saltProvider.provideSalt()
+        val salt = options.saltProvider.provideNonce()
         val key = keyFactory.generateSecret(
             PBEKeySpec(
                 password.toCharArray(),

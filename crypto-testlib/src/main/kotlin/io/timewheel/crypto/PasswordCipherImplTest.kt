@@ -129,7 +129,7 @@ abstract class PasswordCipherImplTest {
     }
 
     private fun options(
-        saltProvider: SaltProvider = RandomSaltGenerator.ofSaltLength(16),
+        saltProvider: NonceProvider = RandomNonceGenerator.ofNonceSize(16),
         algorithm: PasswordKeyGenerator.Algorithm = PasswordKeyGenerator.Algorithm.PBKDF2WithHmacSHA256,
         iterationCount: Int = 65536,
         keyLength: Int = 256
