@@ -157,8 +157,6 @@ interface PasswordCipher {
 
     companion object {
         fun build(base64Coder: Base64Coder, block: (Builder.() -> Unit)): PasswordCipher {
-            // NOTE: AesGcmCipherBuilderImpl is defined by sourcing modules to provide a
-            // platform specific implementation of Base64Coder.
             val builder = Builder(base64Coder)
             block(builder)
             return builder.build()
@@ -239,6 +237,7 @@ internal class PasswordCipherImpl internal constructor(
         val iv = getRandomNonce(ivLengthBytes)
 
         // AES-GCM needs GCMParameterSpec
+        // Must initialize every time
         cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(keyData.key, algorithm.name), GCMParameterSpec(tagLengthBits, iv))
 
         // Encrypt the input

@@ -22,7 +22,7 @@ abstract class PasswordCipherImplTest {
         val encryptionResult = subject().encrypt(
             input,
             password,
-            PasswordCipher.Options(AES.default(), PasswordKeyGenerator.Options())
+            PasswordCipher.Options(AES.default(), options())
         )
         val decryptionResult = subject().decrypt((encryptionResult as Result.Success).result, password)
 
@@ -44,7 +44,7 @@ abstract class PasswordCipherImplTest {
         val encryptionResults = subject().encrypt(
             input,
             password,
-            PasswordCipher.Options(AES.default(), PasswordKeyGenerator.Options())
+            PasswordCipher.Options(AES.default(), options())
         )
         val decryptionResults = encryptionResults.map { it as Result.Success }
             .map { subject().decrypt(it.result, password) }
@@ -77,7 +77,7 @@ abstract class PasswordCipherImplTest {
         val encryptionResult = subject().encrypt(
             input,
             "abc123",
-            PasswordCipher.Options(AES.default(), PasswordKeyGenerator.Options())
+            PasswordCipher.Options(AES.default(), options())
         )
 
         // When
@@ -127,4 +127,11 @@ abstract class PasswordCipherImplTest {
         assertFalse(array.equals(newArray))
         assertEquals(str, newStr)
     }
+
+    private fun options(
+        saltProvider: SaltProvider = RandomSaltGenerator.ofSaltLength(16),
+        algorithm: PasswordKeyGenerator.Algorithm = PasswordKeyGenerator.Algorithm.PBKDF2WithHmacSHA256,
+        iterationCount: Int = 65536,
+        keyLength: Int = 256
+    ) = PasswordKeyGenerator.Options(saltProvider, algorithm, iterationCount, keyLength)
 }

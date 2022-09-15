@@ -162,7 +162,7 @@ class PasswordKeyGeneratorImplTest {
         private val mock = mock<SecretKeyFactoryProvider>()
         private val real = SecretKeyFactoryProviderImpl()
 
-        private var inUse = mock;
+        private var inUse = mock
 
         override fun provideSecretKeyFactory(algorithm: PasswordKeyGenerator.Algorithm): SecretKeyFactory {
             return inUse.provideSecretKeyFactory(algorithm)

@@ -13,7 +13,7 @@ interface PasswordKeyGenerator {
     /**
      * Generates a key from a [password] using the parameters specified in [options].
      */
-    fun generateKey(password: String, options: Options) : Result<ResultData, Error>
+    fun generateKey(password: String, options: Options): Result<ResultData, Error>
 
     /**
      * Algorithms to generate keys from passwords with. Currently supports the following out of
@@ -85,7 +85,7 @@ internal class PasswordKeyGeneratorImpl(
     override fun generateKey(
         password: String,
         options: PasswordKeyGenerator.Options
-    ) : Result<PasswordKeyGenerator.ResultData, PasswordKeyGenerator.Error> {
+    ): Result<PasswordKeyGenerator.ResultData, PasswordKeyGenerator.Error> {
 
         // Validation
         if (options.iterationCount <= 1000) {
