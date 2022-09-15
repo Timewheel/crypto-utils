@@ -31,24 +31,17 @@ interface PasswordKeyGenerator {
     /**
      * Options for key generation. Includes de following:
      *
-     * - [algorithm]: the algorithm to use to generate the key.
      * - [saltProvider]: a [SaltProvider].
+     * - [algorithm]: the algorithm to use to generate the key.
      * - [iterationCount]: the number of iterations the password is hashed to get the key.
      * - [keyLength]: the length of the resulting key in bits.
      */
     class Options(
-        val algorithm: Algorithm = DEFAULT_ALGORITHM,
-        val saltProvider: SaltProvider = RandomSaltGenerator.ofSaltLength(DEFAULT_SALT_LENGTH_BYTES),
-        val iterationCount: Int = DEFAULT_ITERATION_COUNT,
-        val keyLength: Int = DEFAULT_KEY_LENGTH
-    ) {
-        companion object {
-            val DEFAULT_ALGORITHM = Algorithm.PBKDF2WithHmacSHA256
-            const val DEFAULT_SALT_LENGTH_BYTES = 16
-            const val DEFAULT_ITERATION_COUNT = 65536
-            const val DEFAULT_KEY_LENGTH = 256
-        }
-    }
+        val saltProvider: SaltProvider,
+        val algorithm: Algorithm,
+        val iterationCount: Int,
+        val keyLength: Int
+    )
 
     /**
      * Result of generating a key from a password. Includes the [key] as well as the [salt], just
@@ -97,9 +90,9 @@ internal class PasswordKeyGeneratorImpl(
         // Validation
         if (options.iterationCount <= 1000) {
             return Result.Fail(PasswordKeyGenerator.Error.InvalidArgument(
-                "iterationCount",
-                "${options.iterationCount}",
-                ">1000"
+                argumentName = "iterationCount",
+                value = "${options.iterationCount}",
+                requirement = ">1000"
             ))
         }
         if (options.keyLength <= 0 || options.keyLength % 8 != 0) {

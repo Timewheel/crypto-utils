@@ -26,7 +26,7 @@ class PasswordKeyGeneratorImplTest {
     @Test
     fun onGenerateKey_withNegativeIterationCount_fails() {
         // Given
-        val options = PasswordKeyGenerator.Options(iterationCount = 1000)
+        val options = options(iterationCount = 1000)
 
         // When
         val result = subject.generateKey("", options)
@@ -45,7 +45,7 @@ class PasswordKeyGeneratorImplTest {
     @Test
     fun onGenerateKey_withNegativeKeyLength_fails() {
         // Given
-        val options = PasswordKeyGenerator.Options(keyLength = 0)
+        val options = options(keyLength = 0)
 
         // When
         val result = subject.generateKey("", options)
@@ -64,7 +64,7 @@ class PasswordKeyGeneratorImplTest {
     @Test
     fun onGenerateKey_withNonWholeBitCount_fails() {
         // Given
-        val options = PasswordKeyGenerator.Options(keyLength = 6)
+        val options = options(keyLength = 6)
 
         // When
         val result = subject.generateKey("", options)
@@ -89,7 +89,7 @@ class PasswordKeyGeneratorImplTest {
         // When
         val result = subject.generateKey(
             "",
-            PasswordKeyGenerator.Options(algorithm = algorithm)
+            options(algorithm = algorithm)
         )
 
         // Then
@@ -104,7 +104,7 @@ class PasswordKeyGeneratorImplTest {
         // Given
         secretKeyFactoryProviderFixture.useReal()
         val salt = getRandomNonce(12)
-        val options = PasswordKeyGenerator.Options(saltProvider = StaticSaltProvider(salt))
+        val options = options(saltProvider = StaticSaltProvider(salt))
 
         // When
         val data = subject.generateKey("abcABC_123", options)
@@ -118,7 +118,7 @@ class PasswordKeyGeneratorImplTest {
         // Given
         secretKeyFactoryProviderFixture.useReal()
         val keyLength = 128
-        val options = PasswordKeyGenerator.Options(keyLength = keyLength)
+        val options = options(keyLength = keyLength)
 
         // When
         val data = subject.generateKey("abcABC_123", options)
@@ -133,7 +133,7 @@ class PasswordKeyGeneratorImplTest {
         secretKeyFactoryProviderFixture.useReal()
         val password = "abcABC_123"
         val salt = getRandomNonce(12)
-        val options = PasswordKeyGenerator.Options(saltProvider = StaticSaltProvider(salt))
+        val options = options(saltProvider = StaticSaltProvider(salt))
         val passwordKeySpec = PBEKeySpec(
             password.toCharArray(),
             salt,
@@ -150,6 +150,13 @@ class PasswordKeyGeneratorImplTest {
         // Then
         assertArrayEquals(key, (data as Result.Success).result.key)
     }
+
+    private fun options(
+        saltProvider: SaltProvider = RandomSaltGenerator.ofSaltLength(16),
+        algorithm: PasswordKeyGenerator.Algorithm = PasswordKeyGenerator.Algorithm.PBKDF2WithHmacSHA256,
+        iterationCount: Int = 65536,
+        keyLength: Int = 256
+    ) = PasswordKeyGenerator.Options(saltProvider, algorithm, iterationCount, keyLength)
 
     class SecretKeyFactoryProviderFixture : SecretKeyFactoryProvider {
         private val mock = mock<SecretKeyFactoryProvider>()
