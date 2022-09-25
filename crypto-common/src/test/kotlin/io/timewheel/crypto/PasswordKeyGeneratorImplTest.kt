@@ -38,7 +38,7 @@ class PasswordKeyGeneratorImplTest {
                 "${options.iterationCount}",
                 ">1000"
             ),
-            (result as Result.Fail).error
+            (result as Result.Failure).error
         )
     }
 
@@ -57,7 +57,7 @@ class PasswordKeyGeneratorImplTest {
                 "${options.keyLength}",
                 "> 0 AND a multiple of 8"
             ),
-            (result as Result.Fail).error
+            (result as Result.Failure).error
         )
     }
 
@@ -76,7 +76,7 @@ class PasswordKeyGeneratorImplTest {
                 "${options.keyLength}",
                 "> 0 AND a multiple of 8"
             ),
-            (result as Result.Fail).error
+            (result as Result.Failure).error
         )
     }
 
@@ -95,14 +95,13 @@ class PasswordKeyGeneratorImplTest {
         // Then
         assertEquals(
             PasswordKeyGenerator.Error.AlgorithmNotSupported(algorithm),
-            (result as Result.Fail).error
+            (result as Result.Failure).error
         )
     }
 
     @Test
     fun onGenerateKey_deliversSalt() {
         // Given
-        secretKeyFactoryProviderFixture.useReal()
         val salt = getRandomNonce(12)
         val options = options(saltProvider = StaticNonceProvider(salt))
 
@@ -116,7 +115,6 @@ class PasswordKeyGeneratorImplTest {
     @Test
     fun onGenerateKey_deliversResultWithKeyOfRequestedLength() {
         // Given
-        secretKeyFactoryProviderFixture.useReal()
         val keyLength = 128
         val options = options(keyLength = keyLength)
 
@@ -130,7 +128,6 @@ class PasswordKeyGeneratorImplTest {
     @Test
     fun onGenerateKey_deliversResultWithKey() {
         // Given
-        secretKeyFactoryProviderFixture.useReal()
         val password = "abcABC_123"
         val salt = getRandomNonce(12)
         val options = options(saltProvider = StaticNonceProvider(salt))
@@ -162,22 +159,21 @@ class PasswordKeyGeneratorImplTest {
         private val mock = mock<SecretKeyFactoryProvider>()
         private val real = SecretKeyFactoryProviderImpl()
 
-        private var inUse = mock
+        init {
+            mockRealResponse()
+        }
 
         override fun provideSecretKeyFactory(algorithm: PasswordKeyGenerator.Algorithm): SecretKeyFactory {
-            return inUse.provideSecretKeyFactory(algorithm)
+            return mock.provideSecretKeyFactory(algorithm)
         }
 
-        fun useReal() {
-            inUse = real
-        }
-
-        private fun useMock() {
-            inUse = mock
+        fun mockRealResponse() {
+            whenever(mock.provideSecretKeyFactory(any())) doAnswer {
+                real.provideSecretKeyFactory(it.getArgument(0))
+            }
         }
 
         fun mockThrow() {
-            useMock()
             whenever(mock.provideSecretKeyFactory(any())) doThrow NoSuchAlgorithmException::class
         }
 

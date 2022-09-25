@@ -43,7 +43,7 @@ class DecryptActivity : AppCompatActivity() {
                             binding.decryptOutput.text = "Decryption Success!\n" +
                                 "Original text: ${result.result}"
                         }
-                        is Result.Fail -> {
+                        is Result.Failure -> {
                             val message = when (result.error) {
                                 is DecryptionError.BadFormat -> "Bad input format"
                                 is DecryptionError.WrongPassword -> "Wrong password"

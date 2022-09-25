@@ -186,43 +186,34 @@ internal class PasswordCipherImpl internal constructor(
         val cipher: Cipher = try {
             Cipher.getInstance(algorithm.transformation())
         } catch (x: NoSuchAlgorithmException) {
-            return listOf(Result.Fail(EncryptionError.AlgorithmNotSupported(options.algorithm)))
+            return listOf(Result.Failure(EncryptionError.AlgorithmNotSupported(options.algorithm)))
         } catch (x: NoSuchPaddingException) {
-            return listOf(Result.Fail(EncryptionError.AlgorithmNotSupported(options.algorithm)))
+            return listOf(Result.Failure(EncryptionError.AlgorithmNotSupported(options.algorithm)))
         }
 
         return mutableListOf<Result<String, EncryptionError>>().apply {
             for (cleartext in input) {
                 // Secret key from password
-                val keygenResult = passwordKeyGenerator.generateKey(
-                    password,
-                    options.keyGenerationOptions
-                )
-
-                // Key generation failed, add a fail result and continue
-                when (keygenResult) {
-                    is Result.Fail -> {
-                        keygenResult.error.let {
-                            add(Result.Fail(
-                                when (it) {
-                                    is PasswordKeyGenerator.Error.InvalidArgument -> {
-                                        EncryptionError.InvalidArgument(
-                                            "keyGenerationOptions.${it.argumentName}",
-                                            it.value,
-                                            it.requirement
-                                        )
-                                    }
-                                    is PasswordKeyGenerator.Error.AlgorithmNotSupported -> {
-                                        EncryptionError.KeyGenerationAlgorithmNotSupported(it.algorithm)
-                                    }
+                passwordKeyGenerator.generateKey(password, options.keyGenerationOptions)
+                    .doIfFailure {
+                        // Add the relevant failure to the result list
+                        add(Result.Failure(
+                            when (it) {
+                                is PasswordKeyGenerator.Error.InvalidArgument -> {
+                                    EncryptionError.InvalidArgument(
+                                        "keyGenerationOptions.${it.argumentName}",
+                                        it.value,
+                                        it.requirement
+                                    )
                                 }
-                            ))
-                        }
+                                is PasswordKeyGenerator.Error.AlgorithmNotSupported -> {
+                                    EncryptionError.KeyGenerationAlgorithmNotSupported(it.algorithm)
+                                }
+                            }
+                        ))
+                    }.doIfSuccess {
+                        add(encrypt(cipher, cleartext, it, options.algorithm))
                     }
-                    is Result.Success -> {
-                        add(encrypt(cipher, cleartext, keygenResult.result, options.algorithm))
-                    }
-                }
             }
         }.toList()
     }
@@ -291,7 +282,7 @@ internal class PasswordCipherImpl internal constructor(
         // Decode version
         return when (buffer.int) {
             V1 -> decryptV1(buffer, password)
-            else -> Result.Fail(BadFormat)
+            else -> Result.Failure(BadFormat)
         }
     }
 
@@ -301,7 +292,7 @@ internal class PasswordCipherImpl internal constructor(
         buffer.get(algorithmBytes)
         val algorithmString = algorithmBytes.toString(UTF_8)
         if (algorithmString != "AES/GCM/NoPadding") {
-            return Result.Fail(BadFormat)
+            return Result.Failure(BadFormat)
         }
 
         // Decode Salt and IV
@@ -334,8 +325,8 @@ internal class PasswordCipherImpl internal constructor(
             Result.Success(cipher.doFinal(cipherText).toString(UTF_8))
         } catch (exception: Exception) {
             when (exception) {
-                is AEADBadTagException -> Result.Fail(WrongPassword)
-                else -> Result.Fail(Other(exception))
+                is AEADBadTagException -> Result.Failure(WrongPassword)
+                else -> Result.Failure(Other(exception))
             }
         }
     }

@@ -67,7 +67,7 @@ abstract class PasswordCipherImplTest {
         val result = subject().decrypt(base64Input, "")
 
         // Then
-        assertEquals(Result.Fail(DecryptionError.BadFormat), result)
+        assertEquals(Result.Failure(DecryptionError.BadFormat), result)
     }
 
     @Test
@@ -84,7 +84,7 @@ abstract class PasswordCipherImplTest {
         val decryptionResult = subject().decrypt((encryptionResult as Result.Success).result, "123abc")
 
         // Then
-        assertEquals(Result.Fail(DecryptionError.WrongPassword), decryptionResult)
+        assertEquals(Result.Failure(DecryptionError.WrongPassword), decryptionResult)
     }
 
     @Test

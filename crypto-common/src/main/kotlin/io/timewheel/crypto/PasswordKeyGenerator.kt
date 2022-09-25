@@ -89,7 +89,7 @@ internal class PasswordKeyGeneratorImpl(
 
         // Validation
         if (options.iterationCount <= 1000) {
-            return Result.Fail(PasswordKeyGenerator.Error.InvalidArgument(
+            return Result.Failure(PasswordKeyGenerator.Error.InvalidArgument(
                 argumentName = "iterationCount",
                 value = "${options.iterationCount}",
                 requirement = ">1000"
@@ -101,7 +101,7 @@ internal class PasswordKeyGeneratorImpl(
             // whole byte. The choice to throw an error here is that all these parameters must be
             // chosen intentionally; passing a parameter that isn't a multiple of 8 implies that it
             // wasn't chosen carefully enough and the choice must be revisited.
-            return Result.Fail(PasswordKeyGenerator.Error.InvalidArgument(
+            return Result.Failure(PasswordKeyGenerator.Error.InvalidArgument(
                 argumentName = "keyLength",
                 value = "${options.keyLength}",
                 requirement = "> 0 AND a multiple of 8"
@@ -112,7 +112,7 @@ internal class PasswordKeyGeneratorImpl(
         val keyFactory: SecretKeyFactory = try {
             secretKeyFactoryProvider.provideSecretKeyFactory(options.algorithm)
         } catch (x: NoSuchAlgorithmException) {
-            return Result.Fail(PasswordKeyGenerator.Error.AlgorithmNotSupported(options.algorithm))
+            return Result.Failure(PasswordKeyGenerator.Error.AlgorithmNotSupported(options.algorithm))
         }
 
         // Generate the key
