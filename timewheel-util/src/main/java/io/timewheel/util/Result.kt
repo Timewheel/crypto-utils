@@ -12,18 +12,20 @@ sealed class Result<ResultType, ErrorType> {
     /**
      * Executes the [block] if the [Result] is a [Success], providing the [Success.result].
      */
-    fun doIfSuccess(block: (ResultType) -> Unit) : Result<ResultType, ErrorType> = also {
+    fun doIfSuccess(block: (ResultType) -> Unit) : Result<ResultType, ErrorType> {
         if (this is Success) {
             block(this.result)
         }
+        return this
     }
 
     /**
      * Executes the [block] if the [Result] is a [Failure], providing the [Failure.error].
      */
-    fun doIfFailure(block: (ErrorType) -> Unit) : Result<ResultType, ErrorType> = also {
+    fun doIfFailure(block: (ErrorType) -> Unit) : Result<ResultType, ErrorType> {
         if (this is Failure) {
             block(this.error)
         }
+        return this
     }
 }

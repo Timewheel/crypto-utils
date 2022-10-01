@@ -63,7 +63,7 @@ interface PasswordKeyGenerator {
         data class InvalidArgument(val argumentName: String, val value: String, val requirement: String) : Error()
 
         /**
-         * The requested [algorithm] to generate a key is not supported.
+         * The requested [algorithm] to generate a key is not supported by your platform.
          */
         data class AlgorithmNotSupported(val algorithm: Algorithm) : Error()
     }
@@ -108,7 +108,7 @@ internal class PasswordKeyGeneratorImpl(
             ))
         }
 
-        // Create the factory first to fail fast
+        // Create the factory first to fail fast if need be.
         val keyFactory: SecretKeyFactory = try {
             secretKeyFactoryProvider.provideSecretKeyFactory(options.algorithm)
         } catch (x: NoSuchAlgorithmException) {
@@ -136,7 +136,10 @@ internal class PasswordKeyGeneratorImpl(
  */
 internal interface SecretKeyFactoryProvider {
     /**
-     * Provides a [SecretKeyFactory] for the requested [algorithm].
+     * Provides a [SecretKeyFactory] for the requested [algorithm]. Note that this method throws
+     * instead of delivering a [Result]. This is because of two reasons:
+     * - This is an internal component designed to provide testability to the component.
+     * - The only exception [SecretKeyFactory.getInstance] throws is [NoSuchAlgorithmException].
      */
     @Throws(NoSuchAlgorithmException::class)
     fun provideSecretKeyFactory(algorithm: PasswordKeyGenerator.Algorithm): SecretKeyFactory
