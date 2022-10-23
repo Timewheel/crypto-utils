@@ -7,3 +7,16 @@ java {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
 }
+
+dependencies {
+    testImplementation deps.test.junit5.jupiter.api
+    testRuntimeOnly deps.test.junit5.jupiter.engine
+    testImplementation deps.test.junit5.jupiter.params
+    testImplementation deps.test.mockito.core
+    testImplementation deps.test.mockito.junitJupiter
+    testImplementation deps.test.mockitoKotlin
+}
+
+tasks.withType(Test) {
+    useJUnitPlatform()
+}

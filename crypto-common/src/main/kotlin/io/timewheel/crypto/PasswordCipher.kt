@@ -58,27 +58,6 @@ interface PasswordCipher {
     fun decrypt(input: String, password: String): Result<String, DecryptionError>
 
     /**
-     * Supported AES algorithms.
-     */
-//    enum class Algorithm(internal val algorithmString: String) {
-//        /**
-//         * Galois Counting Mode with no padding.
-//         */
-//        GcmNoPadding("AES/GCM/NoPadding");
-//
-//        companion object {
-//            internal fun fromString(algorithmString: String): Algorithm? {
-//                for (algorithm in values()) {
-//                    if (algorithm.algorithmString == algorithmString) {
-//                        return algorithm
-//                    }
-//                }
-//                return null
-//            }
-//        }
-//    }
-
-    /**
      * Builds instances of [PasswordCipher].
      */
     class Builder internal constructor(private val base64Coder: Base64Coder){

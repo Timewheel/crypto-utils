@@ -1,5 +1,6 @@
 package io.timewheel.crypto
 
+
 /**
  * AES algorithm and its parameters.
  */
@@ -14,22 +15,40 @@ class AES(val mode: Mode, val keyLength: KeyLength) : EncryptionAlgorithm("AES")
      */
     sealed class Mode(internal val modeString: String) {
 
+
+
         /**
          * GCM.
          */
-        class GCM(val tagLength: Int, val ivLength: Long) : Mode("GCM/NoPadding") {
+        object GCM : Mode("GCM/NoPadding") {
 
-            companion object {
-                /**
-                 * Creates a default GCM specification with the following parameters:
-                 *
-                 * - Tag length: 128 bits.
-                 *   - TODO explain decision.
-                 * - Initialization vector length: 96 bits.
-                 *   - TODO explain decision.
-                 */
-                fun default() = GCM(tagLength = 128, ivLength = 96)
+            data class Input(
+                val tagLength: Int = 128,
+                val ivLength: Int = 96
+            ) : io.timewheel.crypto.cipher.Algorithm.EncryptionInputs<Output>() {
+                val name: String = ""
+
+                override fun getDecryptionInputs(): Output {
+                    return Output(tagLength, getRandomNonce(ivLength/8))
+                }
             }
+
+            data class Output(
+                val tagLength: Int,
+                val iv: ByteArray
+            ) : io.timewheel.crypto.cipher.Algorithm.DecryptionInputs()
+
+//            companion object {
+//                /**
+//                 * Creates a default GCM specification with the following parameters:
+//                 *
+//                 * - Tag length: 128 bits.
+//                 *   - TODO explain decision.
+//                 * - Initialization vector length: 96 bits.
+//                 *   - TODO explain decision.
+//                 */
+//                fun default() = GCM(tagLength = 128, ivLength = 96)
+//            }
         }
     }
 
@@ -61,6 +80,6 @@ class AES(val mode: Mode, val keyLength: KeyLength) : EncryptionAlgorithm("AES")
          * - Key length: 256 bits.
          *   - A 256 bit key is the longest and most secure key length for AES.
          */
-        fun default() = AES(mode = Mode.GCM.default(), keyLength = KeyLength.L256)
+        fun default() = AES(mode = Mode.GCM, keyLength = KeyLength.L256)
     }
 }
