@@ -383,7 +383,15 @@ class PasswordCipherImplTest {
                     AES.GcmNoPadding(AES.KeyLength.L256)
                 ))
             ),
-            // [4] Key cipher succeeds
+            // [4] Key cipher fails with WrongKey
+            PasswordCipherDecryptionData(
+                passwordKeyGeneratorResult = Success(
+                    PasswordKeyGenerator.ResultData(getRandomNonce(8), getRandomNonce(8))
+                ),
+                keyCipherResult = Failure(KeyCipher.DecryptionError.WrongKey),
+                expectedResult = Failure(PasswordCipher.DecryptionError.WrongPassword)
+            ),
+            // [5] Key cipher succeeds
             PasswordCipherDecryptionData(
                 passwordKeyGeneratorResult = Success(
                     PasswordKeyGenerator.ResultData(getRandomNonce(8), getRandomNonce(8))
