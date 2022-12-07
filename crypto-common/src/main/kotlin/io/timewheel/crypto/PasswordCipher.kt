@@ -3,6 +3,7 @@ package io.timewheel.crypto
 import io.timewheel.crypto.DecryptionError.*
 import io.timewheel.crypto.DecryptionResult.Failed
 import io.timewheel.crypto.DecryptionResult.Success
+import io.timewheel.crypto.cipher.password.PasswordKeyGenerator
 import io.timewheel.util.Result
 import java.nio.ByteBuffer
 import java.security.NoSuchAlgorithmException
@@ -208,7 +209,7 @@ internal class PasswordCipherImpl internal constructor(
 
         // AES-GCM needs GCMParameterSpec
         // Must initialize every time
-        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(keyData.key, algorithm.name), GCMParameterSpec(tagLengthBits, iv))
+        cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(keyData.key.data, algorithm.name), GCMParameterSpec(tagLengthBits, iv))
 
         // Encrypt the input
         val cipherText = cipher.doFinal(input.toByteArray(UTF_8))
@@ -224,7 +225,7 @@ internal class PasswordCipherImpl internal constructor(
                 algorithmBytes.size +
                 // Salt length and salt
                 Int.SIZE_BYTES +
-                keyData.salt.size +
+                keyData.salt.data.size +
                 // Iteration count, key length
                 2 * Int.SIZE_BYTES +
                 // IV length and IV
@@ -241,7 +242,7 @@ internal class PasswordCipherImpl internal constructor(
             .putInt(algorithmBytes.size)
             .put(algorithmBytes)
             .putInt(saltLengthBytes)
-            .put(keyData.salt)
+            .put(keyData.salt.data)
             .putInt(iterationCount)
             .putInt(keyLengthBits)
             .putInt(ivLengthBytes)

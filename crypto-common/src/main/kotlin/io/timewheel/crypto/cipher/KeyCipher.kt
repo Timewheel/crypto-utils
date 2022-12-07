@@ -1,6 +1,8 @@
 package io.timewheel.crypto.cipher
 
+import io.timewheel.util.ByteArrayWrapper
 import io.timewheel.util.Result
+import io.timewheel.util.wrap
 import java.security.NoSuchAlgorithmException
 import javax.crypto.AEADBadTagException
 import javax.crypto.Cipher
@@ -48,7 +50,7 @@ interface KeyCipher {
         ciphertext: ByteArray,
         key: ByteArray,
         options: Options<AlgorithmType, InputType>
-    ): Result<ByteArray, DecryptionError>
+    ): Result<ByteArrayWrapper, DecryptionError>
 
     /**
      * Encryption or decryption options. Include the [Algorithm] to be used and the [input] to
@@ -65,27 +67,9 @@ interface KeyCipher {
      * will always be an [Algorithm.DecryptionInputs].
      */
     data class EncryptionResultData<OutputType>(
-        val ciphertext: ByteArray,
+        val ciphertext: ByteArrayWrapper,
         val algorithmData: OutputType
-    ) {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (javaClass != other?.javaClass) return false
-
-            other as EncryptionResultData<*>
-
-            if (!ciphertext.contentEquals(other.ciphertext)) return false
-            if (algorithmData != other.algorithmData) return false
-
-            return true
-        }
-
-        override fun hashCode(): Int {
-            var result = ciphertext.contentHashCode()
-            result = 31 * result + (algorithmData?.hashCode() ?: 0)
-            return result
-        }
-    }
+    )
 
     /**
      * Error result of [encrypt]. Can be one of the following:
@@ -96,12 +80,7 @@ interface KeyCipher {
         /**
          * The algorithm is not supported by the platform. Contains the [algorithm].
          */
-        data class AlgorithmNotSupported<
-            InputType : Algorithm.EncryptionInputs<OutputType>,
-            OutputType : Algorithm.DecryptionInputs
-        > (
-            val algorithm: Algorithm<InputType, OutputType>
-        ) : EncryptionError()
+        data class AlgorithmNotSupported(val algorithm: Algorithm<*, *>) : EncryptionError()
 
         /**
          * The provided key is invalid because the length of the key didn't match the algorithm spec.
@@ -120,12 +99,7 @@ interface KeyCipher {
         /**
          * The algorithm is not supported by the platform. Contains the [algorithm].
          */
-        data class AlgorithmNotSupported<
-            InputType : Algorithm.EncryptionInputs<OutputType>,
-            OutputType : Algorithm.DecryptionInputs
-        > (
-            val algorithm: Algorithm<InputType, OutputType>
-        ) : DecryptionError()
+        data class AlgorithmNotSupported(val algorithm: Algorithm<*, *>) : DecryptionError()
 
         /**
          * The provided key is invalid because the length of the key didn't match the algorithm spec.
@@ -165,22 +139,12 @@ internal class KeyCipherImpl(private val cipherProvider: CipherProvider) : KeyCi
         // Get the key spec
         return options.algorithm.getKeySpec(key)
             // Map the failure to an EncryptionError
-            .mapFailure<KeyCipher.EncryptionError> { keyError ->
-                when (keyError) {
-                    is Algorithm.KeyError.InvalidKey -> KeyCipher.EncryptionError.InvalidKey
-                }
-            }
+            .mapFailure { keyError -> keyError.toEncryptionError() }
             // Combine with the cipher for the algorithm
             .combineWith(
                 cipherProvider.provideCipher(options.algorithm)
                     // Mapping the error to an EncryptionError
-                    .mapFailure { cipherError ->
-                        when (cipherError) {
-                            is CipherProvider.Error.AlgorithmNotSupported -> {
-                                KeyCipher.EncryptionError.AlgorithmNotSupported(cipherError.algorithm)
-                            }
-                        }
-                    }
+                    .mapFailure { cipherError -> cipherError.toEncryptionError() }
             ) { keySpec, cipher ->
                 // Create the spec and the decryption inputs
                 val specOutputPair = options.algorithm.getDecryptionInputs(options.input)
@@ -189,7 +153,7 @@ internal class KeyCipherImpl(private val cipherProvider: CipherProvider) : KeyCi
                 // Encrypt the input
                 val cipherText = cipher.doFinal(input)
                 // Encapsulate the result
-                KeyCipher.EncryptionResultData(cipherText, specOutputPair.second)
+                KeyCipher.EncryptionResultData(cipherText.wrap(), specOutputPair.second)
             }
     }
 
@@ -200,27 +164,17 @@ internal class KeyCipherImpl(private val cipherProvider: CipherProvider) : KeyCi
         ciphertext: ByteArray,
         key: ByteArray,
         options: KeyCipher.Options<AlgorithmType, InputType>
-    ): Result<ByteArray, KeyCipher.DecryptionError> {
+    ): Result<ByteArrayWrapper, KeyCipher.DecryptionError> {
 
         // Get the key spec
         return options.algorithm.getKeySpec(key)
             // Map the failure to an EncryptionError
-            .mapFailure<KeyCipher.DecryptionError> { keyError ->
-                when (keyError) {
-                    is Algorithm.KeyError.InvalidKey -> KeyCipher.DecryptionError.InvalidKey
-                }
-            }
+            .mapFailure { keyError -> keyError.toDecryptionError() }
             // Combine with the cipher for the algorithm
             .combineWith(
                 cipherProvider.provideCipher(options.algorithm)
-                    // Mapping the error to an EncryptionError
-                    .mapFailure { cipherError ->
-                        when (cipherError) {
-                            is CipherProvider.Error.AlgorithmNotSupported -> {
-                                KeyCipher.DecryptionError.AlgorithmNotSupported(cipherError.algorithm)
-                            }
-                        }
-                    }
+                    // Mapping the error to an DecryptionError
+                    .mapFailure { cipherError -> cipherError.toDecryptionError() }
             ) { keySpec, cipher ->
                 // Return the cipher
                 cipher.also {
@@ -237,13 +191,10 @@ internal class KeyCipherImpl(private val cipherProvider: CipherProvider) : KeyCi
                     is Result.Failure -> Result.Failure(result.error)
                     is Result.Success -> try {
                         // Otherwise return the decryption result
-                        Result.Success(result.result.doFinal(ciphertext))
+                        Result.Success(result.result.doFinal(ciphertext).wrap())
                     } catch (exception: Exception) {
                         // Unless we hit a snag
-                        return Result.Failure(when (exception) {
-                            is AEADBadTagException -> KeyCipher.DecryptionError.WrongKey
-                            else -> KeyCipher.DecryptionError.Other(exception)
-                        })
+                        return Result.Failure(exception.toDecryptionError())
                     }
                 }
             }
@@ -272,3 +223,32 @@ internal class CipherProviderImpl : CipherProvider {
         }
     }
 }
+
+// region Model Mappings
+
+private fun Algorithm.KeyError.toEncryptionError(): KeyCipher.EncryptionError = when (this) {
+    is Algorithm.KeyError.InvalidKey -> KeyCipher.EncryptionError.InvalidKey
+}
+
+private fun Algorithm.KeyError.toDecryptionError(): KeyCipher.DecryptionError = when (this) {
+    is Algorithm.KeyError.InvalidKey -> KeyCipher.DecryptionError.InvalidKey
+}
+
+private fun CipherProvider.Error.toEncryptionError() = when (this) {
+    is CipherProvider.Error.AlgorithmNotSupported -> {
+        KeyCipher.EncryptionError.AlgorithmNotSupported(algorithm)
+    }
+}
+
+private fun CipherProvider.Error.toDecryptionError() = when (this) {
+    is CipherProvider.Error.AlgorithmNotSupported -> {
+        KeyCipher.DecryptionError.AlgorithmNotSupported(algorithm)
+    }
+}
+
+private fun Exception.toDecryptionError() = when (this) {
+    is AEADBadTagException -> KeyCipher.DecryptionError.WrongKey
+    else -> KeyCipher.DecryptionError.Other(this)
+}
+
+// endregion Model Mappings

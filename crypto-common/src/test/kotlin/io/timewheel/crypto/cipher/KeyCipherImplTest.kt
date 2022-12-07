@@ -1,7 +1,9 @@
 package io.timewheel.crypto.cipher
 
 import io.timewheel.crypto.getRandomNonce
+import io.timewheel.util.ByteArrayWrapper
 import io.timewheel.util.Result
+import io.timewheel.util.wrap
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -79,7 +81,7 @@ class KeyCipherImplTest {
         val result = subject.decrypt(
             byteArrayOf(),
             getRandomNonce(256/8),
-            KeyCipher.Options(unsupportedAlgorithm, AES.GcmNoPadding.DecryptionInputs(5, byteArrayOf()))
+            KeyCipher.Options(unsupportedAlgorithm, AES.GcmNoPadding.DecryptionInputs(5, byteArrayOf().wrap()))
         )
 
         // Then - returns an error describing an algorithm that isn't supported
@@ -100,7 +102,7 @@ class KeyCipherImplTest {
         val result = subject.decrypt(
             byteArrayOf(),
             invalidKey,
-            KeyCipher.Options(AES.GcmNoPadding(AES.KeyLength.L256), AES.GcmNoPadding.DecryptionInputs(5, byteArrayOf()))
+            KeyCipher.Options(AES.GcmNoPadding(AES.KeyLength.L256), AES.GcmNoPadding.DecryptionInputs(5, byteArrayOf().wrap()))
         )
 
         // Then - returns an error describing an invalid key
@@ -138,7 +140,7 @@ class KeyCipherImplTest {
 
         // When - decrypting
         val result = subject.decrypt(
-            encryptionResult.result.ciphertext,
+            encryptionResult.result.ciphertext.data,
             decryptionKey,
             KeyCipher.Options(AES.GcmNoPadding(AES.KeyLength.L256), AES.GcmNoPadding.DecryptionInputs(iv = encryptionResult.result.algorithmData.iv))
         )
@@ -167,11 +169,10 @@ class KeyCipherImplTest {
         }
 
         // And - decrypting
-        val resultPlaintext = subject.decrypt(result.ciphertext, key, KeyCipher.Options(options.algorithm, result.algorithmData))
+        val resultWithPlaintext = subject.decrypt(result.ciphertext.data, key, KeyCipher.Options(options.algorithm, result.algorithmData))
 
         // Then - decrypted plaintext equals original plaintext
-        assertTrue(resultPlaintext is Result.Success)
-        assertTrue(plaintext.contentEquals(resultPlaintext.getResultOrDoAndReturnOnFailure {  }))
+        assertEquals(Result.Success<ByteArrayWrapper, KeyCipher.DecryptionError>(plaintext.wrap()), resultWithPlaintext)
     }
 
     internal class CipherProviderFixture : CipherProvider {

@@ -2,6 +2,8 @@ package io.timewheel.crypto.cipher
 
 import io.timewheel.crypto.NonceProvider
 import io.timewheel.crypto.RandomNonceGenerator
+import io.timewheel.util.ByteArrayWrapper
+import io.timewheel.util.wrap
 import java.security.spec.AlgorithmParameterSpec
 import javax.crypto.spec.GCMParameterSpec
 
@@ -31,7 +33,7 @@ abstract class AES<
         }
 
         override fun getParameterSpec(decryptionInputs: DecryptionInputs): AlgorithmParameterSpec {
-            return GCMParameterSpec(decryptionInputs.tagLength, decryptionInputs.iv)
+            return GCMParameterSpec(decryptionInputs.tagLength, decryptionInputs.iv.data)
         }
 
         /**
@@ -45,13 +47,24 @@ abstract class AES<
             val ivProvider: NonceProvider = RandomNonceGenerator.ofNonceSize(96/8)
         ) : Algorithm.EncryptionInputs<DecryptionInputs>() {
             override fun getDecryptionInputs() =
-                DecryptionInputs(tagLength, ivProvider.provideNonce())
+                DecryptionInputs(tagLength, ivProvider.provideNonce().wrap())
         }
 
         data class DecryptionInputs(
             val tagLength: Int = 128,
-            val iv: ByteArray
+            val iv: ByteArrayWrapper
         ) : Algorithm.DecryptionInputs()
+
+        override fun equals(other: Any?): Boolean {
+            if (other is GcmNoPadding) {
+                return other.keyLength == keyLength
+            }
+            return false
+        }
+
+        override fun hashCode(): Int {
+            return javaClass.hashCode()
+        }
     }
 
     /**

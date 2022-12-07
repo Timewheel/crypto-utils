@@ -29,6 +29,16 @@ sealed class Result<ResultType, ErrorType> {
         return this
     }
 
+    inline fun <NewResultType, NewErrorType> map(
+        successBlock: (ResultType) -> NewResultType,
+        failureBlock: (ErrorType) -> NewErrorType
+    ): Result<NewResultType, NewErrorType> {
+        return when (this) {
+            is Success -> Success(successBlock(result))
+            is Failure -> Failure(failureBlock(error))
+        }
+    }
+
     inline fun <NewResultType> mapSuccess(
         block: (ResultType) -> NewResultType
     ): Result<NewResultType, ErrorType> {
@@ -44,6 +54,15 @@ sealed class Result<ResultType, ErrorType> {
         return when (this) {
             is Success -> Success(result)
             is Failure -> Failure(block(error))
+        }
+    }
+
+    inline fun <NewResultType> flatMap(
+        block: (ResultType) -> Result<NewResultType, ErrorType>
+    ): Result<NewResultType, ErrorType> {
+        return when (this) {
+            is Success -> block(result)
+            is Failure -> Failure(error)
         }
     }
 

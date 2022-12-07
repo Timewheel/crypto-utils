@@ -1,6 +1,9 @@
-package io.timewheel.crypto
+package io.timewheel.crypto.cipher.password
 
+import io.timewheel.crypto.NonceProvider
+import io.timewheel.util.ByteArrayWrapper
 import io.timewheel.util.Result
+import io.timewheel.util.wrap
 import java.security.NoSuchAlgorithmException
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
@@ -47,10 +50,12 @@ interface PasswordKeyGenerator {
      * Result of generating a key from a password. Includes the [key] as well as the [salt], just
      * in case the default or another random salt provider was used.
      */
-    class ResultData(
-        val key: ByteArray,
-        val salt: ByteArray
-    )
+    data class ResultData(
+        val key: ByteArrayWrapper,
+        val salt: ByteArrayWrapper
+    ) {
+        constructor(key: ByteArray, salt: ByteArray) : this(key.wrap(), salt.wrap())
+    }
 
     /**
      * Errors that could arise in the process of generating a key from a password.

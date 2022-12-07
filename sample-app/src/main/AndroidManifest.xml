@@ -12,7 +12,7 @@
     android:theme="@style/Theme.Crypto" >
 
     <activity
-      android:name=".SampleActivity"
+      android:name=".EncryptActivity"
       android:exported="true" >
 
       <intent-filter>

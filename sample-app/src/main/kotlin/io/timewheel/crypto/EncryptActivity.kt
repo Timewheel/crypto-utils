@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import io.timewheel.crypto.cipher.password.PasswordKeyGenerator
 import io.timewheel.crypto.databinding.ActivityEncryptBinding
 import io.timewheel.crypto.databinding.ItemAddInputBinding
 import io.timewheel.crypto.databinding.ItemInputBinding
@@ -19,7 +20,7 @@ import io.timewheel.crypto.databinding.ItemOutputBinding
 import io.timewheel.util.Result
 import java.util.concurrent.atomic.AtomicReference
 
-class SampleActivity : AppCompatActivity() {
+class EncryptActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityEncryptBinding
 

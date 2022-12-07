@@ -1,7 +1,12 @@
-package io.timewheel.crypto
+package io.timewheel.crypto.cipher.password
 
+import io.timewheel.crypto.NonceProvider
+import io.timewheel.crypto.RandomNonceGenerator
+import io.timewheel.crypto.StaticNonceProvider
+import io.timewheel.crypto.cipher.password.PasswordKeyGenerator.Error
+import io.timewheel.crypto.cipher.password.PasswordKeyGenerator.ResultData
+import io.timewheel.crypto.getRandomNonce
 import io.timewheel.util.Result
-import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -9,6 +14,8 @@ import org.mockito.kotlin.*
 import java.security.NoSuchAlgorithmException
 import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.PBEKeySpec
+
+private typealias PasswordKeyGeneratorResult = Result<ResultData, Error>
 
 class PasswordKeyGeneratorImplTest {
 
@@ -33,12 +40,14 @@ class PasswordKeyGeneratorImplTest {
 
         // Then
         assertEquals(
-            PasswordKeyGenerator.Error.InvalidArgument(
-                "iterationCount",
-                "${options.iterationCount}",
-                ">1000"
+            failureWith(
+                Error.InvalidArgument(
+                    "iterationCount",
+                    "${options.iterationCount}",
+                    ">1000"
+                )
             ),
-            (result as Result.Failure).error
+            result
         )
     }
 
@@ -52,12 +61,14 @@ class PasswordKeyGeneratorImplTest {
 
         // Then
         assertEquals(
-            PasswordKeyGenerator.Error.InvalidArgument(
-                "keyLength",
-                "${options.keyLength}",
-                "> 0 AND a multiple of 8"
+            failureWith(
+                Error.InvalidArgument(
+                    "keyLength",
+                    "${options.keyLength}",
+                    "> 0 AND a multiple of 8"
+                )
             ),
-            (result as Result.Failure).error
+            result
         )
     }
 
@@ -71,12 +82,14 @@ class PasswordKeyGeneratorImplTest {
 
         // Then
         assertEquals(
-            PasswordKeyGenerator.Error.InvalidArgument(
-                "keyLength",
-                "${options.keyLength}",
-                "> 0 AND a multiple of 8"
+            failureWith(
+                Error.InvalidArgument(
+                    "keyLength",
+                    "${options.keyLength}",
+                    "> 0 AND a multiple of 8"
+                )
             ),
-            (result as Result.Failure).error
+            result
         )
     }
 
@@ -94,22 +107,9 @@ class PasswordKeyGeneratorImplTest {
 
         // Then
         assertEquals(
-            PasswordKeyGenerator.Error.AlgorithmNotSupported(algorithm),
-            (result as Result.Failure).error
+            failureWith(Error.AlgorithmNotSupported(algorithm)),
+            result
         )
-    }
-
-    @Test
-    fun onGenerateKey_deliversSalt() {
-        // Given
-        val salt = getRandomNonce(12)
-        val options = options(saltProvider = StaticNonceProvider(salt))
-
-        // When
-        val data = subject.generateKey("abcABC_123", options)
-
-        // Then
-        assertArrayEquals(salt, (data as Result.Success).result.salt)
     }
 
     @Test
@@ -122,11 +122,11 @@ class PasswordKeyGeneratorImplTest {
         val data = subject.generateKey("abcABC_123", options)
 
         // Then
-        assertEquals(keyLength, (data as Result.Success).result.key.size*8)
+        assertEquals(keyLength, (data as Result.Success).result.key.data.size*8)
     }
 
     @Test
-    fun onGenerateKey_deliversResultWithKey() {
+    fun onGenerateKey_deliversResultWithSaltAndKey() {
         // Given
         val password = "abcABC_123"
         val salt = getRandomNonce(12)
@@ -145,7 +145,15 @@ class PasswordKeyGeneratorImplTest {
         val data = subject.generateKey(password, options)
 
         // Then
-        assertArrayEquals(key, (data as Result.Success).result.key)
+        assertEquals(successFrom(key, salt), data)
+    }
+
+    private fun successFrom(key: ByteArray, salt: ByteArray): PasswordKeyGeneratorResult {
+        return Result.Success(ResultData(key, salt))
+    }
+
+    private fun failureWith(error: Error): PasswordKeyGeneratorResult {
+        return Result.Failure(error)
     }
 
     private fun options(
