@@ -53,7 +53,7 @@ internal interface KeyGeneratorProvider {
 internal class KeyGeneratorProviderImpl : KeyGeneratorProvider {
     @Throws(NoSuchAlgorithmException::class)
     override fun provideKeyGenerator(algorithm: Algorithm<*, *>): KeyGenerator {
-        val generator =  KeyGenerator.getInstance(algorithm.name)
+        val generator =  KeyGenerator.getInstance(algorithm.getName())
         generator.init(algorithm.keyLength.size)
         return generator
     }

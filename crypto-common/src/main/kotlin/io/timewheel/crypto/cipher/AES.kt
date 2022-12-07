@@ -15,18 +15,26 @@ abstract class AES<
     EncryptionInputsType : Algorithm.EncryptionInputs<DecryptionInputsType>,
     DecryptionInputsType : Algorithm.DecryptionInputs
 > (
-    private val mode: String,
     keyLength: KeyLength
-) : Algorithm<EncryptionInputsType, DecryptionInputsType>("AES", keyLength) {
+) : Algorithm<EncryptionInputsType, DecryptionInputsType>(keyLength) {
 
     override fun transformation(): String {
-        return "$name/$mode"
+        return "${getName()}/${getMode()}"
     }
+
+    override fun getName() = "AES"
+
+    /**
+     * Gets the mode of operation for the AES implementation.
+     */
+    abstract fun getMode(): String
 
     /**
      * Implementation of GCM with no padding.
      */
-    class GcmNoPadding(keyLength: KeyLength) : AES<GcmNoPadding.EncryptionInputs, GcmNoPadding.DecryptionInputs>("GCM/NoPadding", keyLength) {
+    class GcmNoPadding(keyLength: KeyLength) : AES<GcmNoPadding.EncryptionInputs, GcmNoPadding.DecryptionInputs>(keyLength) {
+
+        override fun getMode() = "GCM/NoPadding"
 
         override fun getDecryptionInputs(encryptionInputs: EncryptionInputs) = with(encryptionInputs.getDecryptionInputs()) {
             Pair(getParameterSpec(this), this)

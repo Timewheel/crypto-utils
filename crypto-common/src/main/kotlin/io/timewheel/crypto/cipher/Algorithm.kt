@@ -10,15 +10,12 @@ import javax.crypto.spec.SecretKeySpec
  * designed to be extensible so that clients can provide support for algorithms of their own. See
  * [AES] for an example of how to implement a custom algorithm. Implementations must provide:
  *
- * - [name]: the name of the algorithm as specified in the transformation, see the following
- * document for valid names: https://docs.oracle.com/javase/7/docs/technotes/guides/security/StandardNames.html#Cipher
  * - [keyLength]: the length of the key to use.
  */
 abstract class Algorithm<
     EncryptionInputsType : Algorithm.EncryptionInputs<DecryptionInputsType>,
     DecryptionInputsType : Algorithm.DecryptionInputs
 > (
-    val name: String,
     val keyLength: KeyLength
 ) {
 
@@ -31,8 +28,16 @@ abstract class Algorithm<
         if (key.size*8 != keyLength.size) {
             return Result.Failure(KeyError.InvalidKey)
         }
-        return Result.Success(SecretKeySpec(key, name))
+        return Result.Success(SecretKeySpec(key, getName()))
     }
+
+    /**
+     * Gets the name of the algorithm as specified in the transformation, see the following document
+     * for valid names:
+     *
+     * - https://docs.oracle.com/javase/7/docs/technotes/guides/security/StandardNames.html#Cipher
+     */
+    abstract fun getName(): String
 
     /**
      * Produces an [AlgorithmParameterSpec] and [DecryptionInputs] from the provided [encryptionInputs].
