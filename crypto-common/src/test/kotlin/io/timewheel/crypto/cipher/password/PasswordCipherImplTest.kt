@@ -2,6 +2,7 @@ package io.timewheel.crypto.cipher.password
 
 import io.timewheel.crypto.cipher.AES
 import io.timewheel.crypto.cipher.KeyCipher
+import io.timewheel.crypto.encoding.ResultEncoder
 import io.timewheel.crypto.getRandomNonce
 import io.timewheel.util.ByteArrayWrapper
 import io.timewheel.util.Result
@@ -19,6 +20,7 @@ import org.mockito.kotlin.*
 class PasswordCipherImplTest {
     private lateinit var mockPasswordKeyGenerator: PasswordKeyGenerator
     private lateinit var mockKeyCipher: KeyCipher
+    private lateinit var mockResultEncoder: ResultEncoder
 
     private lateinit var subject: PasswordCipherImpl
 
@@ -26,8 +28,9 @@ class PasswordCipherImplTest {
     fun setUp() {
         mockPasswordKeyGenerator = mock()
         mockKeyCipher = mock()
+        mockResultEncoder = mock()
 
-        subject = PasswordCipherImpl(mockPasswordKeyGenerator, mockKeyCipher)
+        subject = PasswordCipherImpl(mockPasswordKeyGenerator, mockKeyCipher, mockResultEncoder)
     }
 
     // region Encrypt
@@ -50,7 +53,7 @@ class PasswordCipherImplTest {
     fun encrypt_shouldEncryptWithKeyCipher() {
         // Given
         whenever(mockPasswordKeyGenerator.generateKey(any(), any())) doReturn Success(
-            PasswordKeyGenerator.ResultData(ByteArray(0).wrap(), ByteArray(0).wrap())
+            PasswordKeyGenerator.ResultData(ByteArray(0).wrap(), ByteArray(0).wrap(), 65536)
         )
         whenever(mockKeyCipher.encrypt(
             any(),
@@ -71,7 +74,7 @@ class PasswordCipherImplTest {
     fun encrypt_shouldThrowWhenKeyCipherReportsInvalidKey() {
         // Given
         whenever(mockPasswordKeyGenerator.generateKey(any(), any())) doReturn Success(
-            PasswordKeyGenerator.ResultData(ByteArray(0).wrap(), ByteArray(0).wrap())
+            PasswordKeyGenerator.ResultData(ByteArray(0).wrap(), ByteArray(0).wrap(), 65536)
         )
         whenever(mockKeyCipher.encrypt(
             any(),
@@ -162,7 +165,7 @@ class PasswordCipherImplTest {
     fun decrypt_shouldEncryptWithKeyCipher() {
         // Given
         whenever(mockPasswordKeyGenerator.generateKey(any(), any())) doReturn Success(
-            PasswordKeyGenerator.ResultData(ByteArray(0).wrap(), ByteArray(0).wrap())
+            PasswordKeyGenerator.ResultData(ByteArray(0).wrap(), ByteArray(0).wrap(), 65536)
         )
         whenever(mockKeyCipher.decrypt(
             any(),
@@ -183,7 +186,7 @@ class PasswordCipherImplTest {
     fun decrypt_shouldThrowWhenKeyCipherReportsInvalidKey() {
         // Given
         whenever(mockPasswordKeyGenerator.generateKey(any(), any())) doReturn Success(
-            PasswordKeyGenerator.ResultData(ByteArray(0).wrap(), ByteArray(0).wrap())
+            PasswordKeyGenerator.ResultData(ByteArray(0).wrap(), ByteArray(0).wrap(), 65536)
         )
         whenever(mockKeyCipher.decrypt(
             any(),
@@ -305,7 +308,7 @@ class PasswordCipherImplTest {
             // [3] Key cipher fails with AlgorithmNotSupported
             PasswordCipherEncryptionData(
                 passwordKeyGeneratorResult = Success(
-                    PasswordKeyGenerator.ResultData(getRandomNonce(8), getRandomNonce(8))
+                    PasswordKeyGenerator.ResultData(getRandomNonce(8), getRandomNonce(8), 65536)
                 ),
                 keyCipherResult = Failure(KeyCipher.EncryptionError.AlgorithmNotSupported(
                     AES.GcmNoPadding(AES.KeyLength.L256)
@@ -319,7 +322,8 @@ class PasswordCipherImplTest {
                 passwordKeyGeneratorResult = Success(
                     PasswordKeyGenerator.ResultData(
                         byteArrayOf(4, 4, 5, 5, 6, 6, 7, 7), // key
-                        byteArrayOf(0, 0, 1, 1, 2, 2, 3, 3) // salt
+                        byteArrayOf(0, 0, 1, 1, 2, 2, 3, 3), // salt
+                        65536
                     )
                 ),
                 keyCipherResult = Success(KeyCipher.EncryptionResultData(
@@ -331,7 +335,8 @@ class PasswordCipherImplTest {
                     AES.GcmNoPadding.DecryptionInputs(iv = byteArrayOf(0, 1, 2, 3, 4, 5, 6, 7, 8).wrap()),
                     PasswordKeyGenerator.ResultData(
                         byteArrayOf(4, 4, 5, 5, 6, 6, 7, 7), // key
-                        byteArrayOf(0, 0, 1, 1, 2, 2, 3, 3) // salt
+                        byteArrayOf(0, 0, 1, 1, 2, 2, 3, 3), // salt
+                        65536
                     )
                 ))
             )
@@ -374,7 +379,7 @@ class PasswordCipherImplTest {
             // [3] Key cipher fails with AlgorithmNotSupported
             PasswordCipherDecryptionData(
                 passwordKeyGeneratorResult = Success(
-                    PasswordKeyGenerator.ResultData(getRandomNonce(8), getRandomNonce(8))
+                    PasswordKeyGenerator.ResultData(getRandomNonce(8), getRandomNonce(8), 65536)
                 ),
                 keyCipherResult = Failure(KeyCipher.DecryptionError.AlgorithmNotSupported(
                     AES.GcmNoPadding(AES.KeyLength.L256)
@@ -386,7 +391,7 @@ class PasswordCipherImplTest {
             // [4] Key cipher fails with WrongKey
             PasswordCipherDecryptionData(
                 passwordKeyGeneratorResult = Success(
-                    PasswordKeyGenerator.ResultData(getRandomNonce(8), getRandomNonce(8))
+                    PasswordKeyGenerator.ResultData(getRandomNonce(8), getRandomNonce(8), 65536)
                 ),
                 keyCipherResult = Failure(KeyCipher.DecryptionError.WrongKey),
                 expectedResult = Failure(PasswordCipher.DecryptionError.WrongPassword)
@@ -394,7 +399,7 @@ class PasswordCipherImplTest {
             // [5] Key cipher succeeds
             PasswordCipherDecryptionData(
                 passwordKeyGeneratorResult = Success(
-                    PasswordKeyGenerator.ResultData(getRandomNonce(8), getRandomNonce(8))
+                    PasswordKeyGenerator.ResultData(getRandomNonce(8), getRandomNonce(8), 65536)
                 ),
                 keyCipherResult = Success(byteArrayOf(0, 1, 2, 3, 4, 5, 6, 7).wrap()),
                 expectedResult = Success(byteArrayOf(0, 1, 2, 3, 4, 5, 6, 7).wrap())

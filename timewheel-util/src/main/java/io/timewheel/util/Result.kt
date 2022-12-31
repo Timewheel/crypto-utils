@@ -7,7 +7,9 @@ package io.timewheel.util
  */
 sealed class Result<ResultType, ErrorType> {
     data class Success<ResultType, ErrorType>(val result: ResultType) : Result<ResultType, ErrorType>()
-    data class Failure<ResultType, ErrorType>(val error: ErrorType) : Result<ResultType, ErrorType>()
+    data class Failure<ResultType, ErrorType>(val error: ErrorType) : Result<ResultType, ErrorType>() {
+        fun <NewResultType> map(): Failure<NewResultType, ErrorType> = Failure(error)
+    }
 
     /**
      * Executes the [block] if the [Result] is a [Success], providing the [Success.result].
@@ -104,4 +106,10 @@ sealed class Result<ResultType, ErrorType> {
             is Success -> return this.result
         }
     }
+
+    /**
+     * Equals with a tighter bound for typing constraints.
+     */
+    @Suppress("CovariantEquals")
+    fun equals(other: Result<ResultType, ErrorType>) = this == other as? Any
 }

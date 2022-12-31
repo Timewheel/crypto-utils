@@ -149,7 +149,7 @@ class PasswordKeyGeneratorImplTest {
     }
 
     private fun successFrom(key: ByteArray, salt: ByteArray): PasswordKeyGeneratorResult {
-        return Result.Success(ResultData(key, salt))
+        return Result.Success(ResultData(key, salt, 65536))
     }
 
     private fun failureWith(error: Error): PasswordKeyGeneratorResult {

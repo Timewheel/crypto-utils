@@ -1,5 +1,7 @@
 package io.timewheel.crypto
 
+import io.timewheel.crypto.encoding.EncodableType
+
 
 /**
  * AES algorithm and its parameters.
@@ -36,7 +38,12 @@ class AES(val mode: Mode, val keyLength: KeyLength) : EncryptionAlgorithm("AES")
             data class Output(
                 val tagLength: Int,
                 val iv: ByteArray
-            ) : io.timewheel.crypto.cipher.Algorithm.DecryptionInputs()
+            ) : io.timewheel.crypto.cipher.Algorithm.DecryptionInputs() {
+
+                override fun getEncodingMapping(): Map<String, EncodableType> {
+                    TODO("Not yet implemented")
+                }
+            }
 
 //            companion object {
 //                /**

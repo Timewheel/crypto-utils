@@ -8,3 +8,5 @@ import java.security.SecureRandom
 fun getRandomNonce(byteCount: Int) = ByteArray(byteCount).also { byteArray ->
     SecureRandom().nextBytes(byteArray)
 }
+
+fun <K, V> Map<K, V>.toPairArray() = entries.map { Pair(it.key, it.value) }.toTypedArray()

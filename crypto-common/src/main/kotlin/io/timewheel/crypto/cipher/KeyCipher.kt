@@ -1,5 +1,10 @@
 package io.timewheel.crypto.cipher
 
+import io.timewheel.crypto.encoding.Encodable
+import io.timewheel.crypto.encoding.EncodableType
+import io.timewheel.crypto.encoding.ResultEncoder
+import io.timewheel.crypto.encoding.encodableType
+import io.timewheel.crypto.toPairArray
 import io.timewheel.util.ByteArrayWrapper
 import io.timewheel.util.Result
 import io.timewheel.util.wrap
@@ -53,6 +58,22 @@ interface KeyCipher {
     ): Result<ByteArrayWrapper, DecryptionError>
 
     /**
+     * Decrypts the [input] encoded string using the provided [options].
+     *
+     * If the operation succeeds, it returns a [Result.Success] containing the original text.
+     *
+     * If the operation fails, it returns a [Result.Failure] containing a [DecryptionError].
+     */
+    fun <
+        AlgorithmType : Algorithm<*, InputType>,
+        InputType : Algorithm.DecryptionInputs
+    > decrypt(
+        input: String,
+        key: ByteArray,
+        options: DecodingOptions<AlgorithmType, InputType>
+    ): Result<ByteArrayWrapper, DecryptionError>
+
+    /**
      * Encryption or decryption options. Include the [Algorithm] to be used and the [input] to
      * be used; [Algorithm.EncryptionInputs] for encryption or [Algorithm.DecryptionInputs] for
      * decryption.
@@ -60,16 +81,65 @@ interface KeyCipher {
     data class Options<AlgorithmType, InputType>(
         val algorithm: AlgorithmType,
         val input: InputType
+    ) {
+        companion object {
+            /**
+             * Creates an options object from the provided encoding.
+             */
+            @JvmStatic
+            internal fun <
+                AlgorithmType : Algorithm<*, InputType>,
+                InputType : Algorithm.DecryptionInputs
+            > fromEncodingMapping(
+                algorithm: AlgorithmType,
+                mapping: Map<String, EncodableType>
+            ): Options<AlgorithmType, InputType> {
+                return Options(
+                    algorithm,
+                    algorithm.getDecryptionInputs(mapping)
+                )
+            }
+        }
+    }
+
+    /**
+     * Options for decrypting using an encoded output. Must provide the following:
+     *
+     * - [algorithm]: the algorithm used to encrypt the input.
+     */
+    data class DecodingOptions<
+        AlgorithmType : Algorithm<*, InputType>,
+        InputType : Algorithm.DecryptionInputs
+    >(
+        val algorithm: AlgorithmType
     )
 
     /**
      * Result of [encrypt]. Contains the [ciphertext] and the output type of the algorithm, which
      * will always be an [Algorithm.DecryptionInputs].
      */
-    data class EncryptionResultData<OutputType>(
+    data class EncryptionResultData<OutputType : Algorithm.DecryptionInputs>(
         val ciphertext: ByteArrayWrapper,
         val algorithmData: OutputType
-    )
+    ) : Encodable {
+
+        private lateinit var resultEncoder: ResultEncoder
+
+        internal fun setEncoder(resultEncoder: ResultEncoder) {
+            this.resultEncoder = resultEncoder
+        }
+
+        fun encode() = encode("tl%iv%s%i%c")
+
+        fun encode(format: String): String {
+            return (resultEncoder.encode(format, this) as Result.Success).result
+        }
+
+        override fun getEncodingMapping() = mapOf(
+            *algorithmData.getEncodingMapping().toPairArray(),
+            "c" to ciphertext.data.encodableType()
+        )
+    }
 
     /**
      * Error result of [encrypt]. Can be one of the following:
@@ -90,12 +160,18 @@ interface KeyCipher {
 
     /**
      * Error result of [decrypt]. Can be one of the following:
+     * - [BadFormat]
      * - [AlgorithmNotSupported]
      * - [InvalidKey]
      * - [WrongKey]
      * - [Other]
      */
     sealed class DecryptionError {
+        /**
+         * When the input encoded string has a bad format.
+         */
+        object BadFormat : DecryptionError()
+
         /**
          * The algorithm is not supported by the platform. Contains the [algorithm].
          */
@@ -121,11 +197,14 @@ interface KeyCipher {
         /**
          * Creates a KeyCipher.
          */
-        fun create(): KeyCipher = KeyCipherImpl(CipherProviderImpl())
+        fun create(): KeyCipher = KeyCipherImpl(CipherProviderImpl(), ResultEncoder.create())
     }
 }
 
-internal class KeyCipherImpl(private val cipherProvider: CipherProvider) : KeyCipher {
+internal class KeyCipherImpl(
+    private val cipherProvider: CipherProvider,
+    private val resultEncoder: ResultEncoder,
+) : KeyCipher {
     override fun <
         AlgorithmType: Algorithm<InputType, OutputType>,
         InputType : Algorithm.EncryptionInputs<OutputType>,
@@ -198,6 +277,28 @@ internal class KeyCipherImpl(private val cipherProvider: CipherProvider) : KeyCi
                     }
                 }
             }
+    }
+
+    override fun <
+        AlgorithmType : Algorithm<*, InputType>,
+        InputType : Algorithm.DecryptionInputs
+    > decrypt(
+        input: String,
+        key: ByteArray,
+        options: KeyCipher.DecodingOptions<AlgorithmType, InputType>
+    ): Result<ByteArrayWrapper, KeyCipher.DecryptionError> {
+        return when (val mappingResult = resultEncoder.decode(input)) {
+            is Result.Failure -> Result.Failure(KeyCipher.DecryptionError.BadFormat)
+            is Result.Success -> {
+                val mapping = mappingResult.result
+                val ciphertext = mapping["c"]?.byteArrayOrNull() ?: return Result.Failure(KeyCipher.DecryptionError.BadFormat)
+                val fullOptions = KeyCipher.Options.fromEncodingMapping(
+                    options.algorithm,
+                    mapping
+                )
+                return decrypt(ciphertext.value.data, key, fullOptions)
+            }
+        }
     }
 }
 

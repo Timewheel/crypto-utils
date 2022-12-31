@@ -1,11 +1,11 @@
 package io.timewheel.crypto
 
+import io.timewheel.crypto.cipher.password.PasswordKeyGenerator
 import io.timewheel.util.Result
 import org.junit.Assert.*
 import org.junit.Test
 import java.nio.ByteBuffer
 import java.security.SecureRandom
-import java.util.*
 import kotlin.text.Charsets.UTF_8
 
 abstract class PasswordCipherImplTest {
@@ -56,21 +56,6 @@ abstract class PasswordCipherImplTest {
     }
 
     @Test
-    fun decrypt_shouldErrorOutWhenFormatIsUnexpected() {
-        // Given
-        val input = ByteBuffer.allocate(4)
-            .putInt(-1)
-            .array()
-        val base64Input = Base64.getEncoder().encodeToString(input)
-
-        // When
-        val result = subject().decrypt(base64Input, "")
-
-        // Then
-        assertEquals(Result.Failure(DecryptionError.BadFormat), result)
-    }
-
-    @Test
     fun decrypt_shouldErrorOutWithDifferentPasswords() {
         // Given
         val input = randomString(128)
@@ -84,7 +69,7 @@ abstract class PasswordCipherImplTest {
         val decryptionResult = subject().decrypt((encryptionResult as Result.Success).result, "123abc")
 
         // Then
-        assertEquals(Result.Failure(DecryptionError.WrongPassword), decryptionResult)
+        assertTrue(decryptionResult.equals(Result.Failure(DecryptionError.WrongPassword)))
     }
 
     @Test

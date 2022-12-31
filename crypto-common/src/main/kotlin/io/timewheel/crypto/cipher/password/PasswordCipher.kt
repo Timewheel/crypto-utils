@@ -2,6 +2,11 @@ package io.timewheel.crypto.cipher.password
 
 import io.timewheel.crypto.cipher.Algorithm
 import io.timewheel.crypto.cipher.KeyCipher
+import io.timewheel.crypto.encoding.Encodable
+import io.timewheel.crypto.encoding.EncodableType
+import io.timewheel.crypto.encoding.ResultEncoder
+import io.timewheel.crypto.encoding.encodableType
+import io.timewheel.crypto.toPairArray
 import io.timewheel.util.ByteArrayWrapper
 import io.timewheel.util.Result
 
@@ -51,6 +56,22 @@ interface PasswordCipher {
     ): Result<ByteArrayWrapper, DecryptionError>
 
     /**
+     * Decrypts the [input] encoded string using the [password] and the provided [options].
+     *
+     * If the operation succeeds, it returns a [Result.Success] containing the original text.
+     *
+     * If the operation fails, it returns a [Result.Failure] containing a [DecryptionError].
+     */
+    fun <
+        AlgorithmType : Algorithm<*, InputType>,
+        InputType : Algorithm.DecryptionInputs
+    > decrypt(
+        input: String,
+        password: String,
+        options: DecodingOptions<AlgorithmType, InputType>
+    ): Result<ByteArrayWrapper, DecryptionError>
+
+    /**
      * Encryption or decryption options. Include the [Algorithm] to be used and the [input] to
      * be used; [Algorithm.EncryptionInputs] for encryption or [Algorithm.DecryptionInputs] for
      * decryption.
@@ -61,13 +82,71 @@ interface PasswordCipher {
         val passwordKeyGeneratorOptions: PasswordKeyGenerator.Options
     ) {
         internal fun toKeyCipherOptions() = KeyCipher.Options(algorithm, input)
+
+        companion object {
+            /**
+             * Creates an options object from the provided encoding.
+             */
+            @JvmStatic
+            internal fun <
+                AlgorithmType : Algorithm<*, InputType>,
+                InputType : Algorithm.DecryptionInputs
+            > fromEncodingMapping(
+                algorithm: AlgorithmType,
+                pkgAlgorithm: PasswordKeyGenerator.Algorithm,
+                mapping: Map<String, EncodableType>
+            ): Options<AlgorithmType, InputType> {
+                return Options(
+                    algorithm,
+                    algorithm.getDecryptionInputs(mapping),
+                    PasswordKeyGenerator.Options.fromEncodingMapping(
+                        algorithm.keyLength.size,
+                        pkgAlgorithm,
+                        mapping
+                    )
+                )
+            }
+        }
     }
 
-    data class EncryptionResultData<OutputType>(
+    /**
+     * Options for decrypting using an encoded output. Must provide the following:
+     *
+     * - [algorithm]: the algorithm used to encrypt the input.
+     * - [pkgAlgorithm]: the algorithm used to generate the key from the password.
+     */
+    data class DecodingOptions<
+        AlgorithmType : Algorithm<*, InputType>,
+        InputType : Algorithm.DecryptionInputs
+    >(
+        val algorithm: AlgorithmType,
+        val pkgAlgorithm: PasswordKeyGenerator.Algorithm
+    )
+
+    data class EncryptionResultData<OutputType : Algorithm.DecryptionInputs> internal constructor(
         val ciphertext: ByteArrayWrapper,
         val algorithmData: OutputType,
         val passwordData: PasswordKeyGenerator.ResultData
-    )
+    ) : Encodable {
+
+        private lateinit var resultEncoder: ResultEncoder
+
+        internal fun setEncoder(resultEncoder: ResultEncoder) {
+            this.resultEncoder = resultEncoder
+        }
+
+        fun encode() = encode("tl%iv%s%i%c")
+
+        fun encode(format: String): String {
+            return (resultEncoder.encode(format, this) as Result.Success).result
+        }
+
+        override fun getEncodingMapping() = mapOf(
+            *algorithmData.getEncodingMapping().toPairArray(),
+            "c" to ciphertext.data.encodableType(),
+            *passwordData.getEncodingMapping().toPairArray()
+        )
+    }
 
     sealed class EncryptionError {
         /**
@@ -82,6 +161,11 @@ interface PasswordCipher {
     }
 
     sealed class DecryptionError {
+        /**
+         * When the input encoded string has a bad format.
+         */
+        object BadFormat : DecryptionError()
+
         /**
          * The algorithm is not supported by the platform. Contains the [algorithm].
          */
@@ -105,14 +189,19 @@ interface PasswordCipher {
 
     companion object {
         fun create() : PasswordCipher {
-            return PasswordCipherImpl(PasswordKeyGenerator.create(), KeyCipher.create())
+            return PasswordCipherImpl(
+                PasswordKeyGenerator.create(),
+                KeyCipher.create(),
+                ResultEncoder.create()
+            )
         }
     }
 }
 
 internal class PasswordCipherImpl(
     private val passwordKeyGenerator: PasswordKeyGenerator,
-    private val keyCipher: KeyCipher
+    private val keyCipher: KeyCipher,
+    private val resultEncoder: ResultEncoder
 ) : PasswordCipher {
     override fun <
         AlgorithmType : Algorithm<InputType, OutputType>,
@@ -132,7 +221,7 @@ internal class PasswordCipherImpl(
                             encryptionResultData.ciphertext,
                             encryptionResultData.algorithmData,
                             pkgResultData
-                        )
+                        ).apply { setEncoder(resultEncoder) }
                     }) { keyCipherError -> keyCipherError.toEncryptionError() }
             }
     }
@@ -151,6 +240,29 @@ internal class PasswordCipherImpl(
                 keyCipher.decrypt(ciphertext, pkgResultData.key.data, options.toKeyCipherOptions())
                     .mapFailure { keyCipherError -> keyCipherError.toDecryptionError() }
             }
+    }
+
+    override fun <
+        AlgorithmType : Algorithm<*, InputType>,
+        InputType : Algorithm.DecryptionInputs
+    > decrypt(
+        input: String,
+        password: String,
+        options: PasswordCipher.DecodingOptions<AlgorithmType, InputType>
+    ): Result<ByteArrayWrapper, PasswordCipher.DecryptionError> {
+        return when (val mappingResult = resultEncoder.decode(input)) {
+            is Result.Failure -> Result.Failure(PasswordCipher.DecryptionError.BadFormat)
+            is Result.Success -> {
+                val mapping = mappingResult.result
+                val ciphertext = mapping["c"]?.byteArrayOrNull() ?: return Result.Failure(PasswordCipher.DecryptionError.BadFormat)
+                val fullOptions = PasswordCipher.Options.fromEncodingMapping(
+                    options.algorithm,
+                    options.pkgAlgorithm,
+                    mapping
+                )
+                return decrypt(ciphertext.value.data, password, fullOptions)
+            }
+        }
     }
 }
 
@@ -174,6 +286,9 @@ private fun KeyCipher.EncryptionError.toEncryptionError() = when (this) {
 }
 
 private fun KeyCipher.DecryptionError.toDecryptionError() = when (this) {
+    is KeyCipher.DecryptionError.BadFormat -> {
+        throw IllegalStateException("Password cipher never decode decrypts using the key cipher")
+    }
     is KeyCipher.DecryptionError.AlgorithmNotSupported -> {
         PasswordCipher.DecryptionError.AlgorithmNotSupported(algorithm)
     }

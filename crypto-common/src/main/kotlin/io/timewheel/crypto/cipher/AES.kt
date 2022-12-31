@@ -2,6 +2,9 @@ package io.timewheel.crypto.cipher
 
 import io.timewheel.crypto.NonceProvider
 import io.timewheel.crypto.RandomNonceGenerator
+import io.timewheel.crypto.encoding.BadFormatException
+import io.timewheel.crypto.encoding.EncodableType
+import io.timewheel.crypto.encoding.encodableType
 import io.timewheel.util.ByteArrayWrapper
 import io.timewheel.util.wrap
 import java.security.spec.AlgorithmParameterSpec
@@ -40,8 +43,25 @@ abstract class AES<
             Pair(getParameterSpec(this), this)
         }
 
+        override fun getDecryptionInputs(mapping: Map<String, EncodableType>): DecryptionInputs {
+            val tagLength = mapping["tl"] as? EncodableType.Int ?: throw BadFormatException()
+            val iv = mapping["iv"] as? EncodableType.ByteArray ?: throw BadFormatException()
+            return DecryptionInputs(tagLength.value, iv.value)
+        }
+
         override fun getParameterSpec(decryptionInputs: DecryptionInputs): AlgorithmParameterSpec {
             return GCMParameterSpec(decryptionInputs.tagLength, decryptionInputs.iv.data)
+        }
+
+        override fun equals(other: Any?): Boolean {
+            if (other is GcmNoPadding) {
+                return other.keyLength == keyLength
+            }
+            return false
+        }
+
+        override fun hashCode(): Int {
+            return javaClass.hashCode()
         }
 
         /**
@@ -54,24 +74,19 @@ abstract class AES<
             val tagLength: Int = 128,
             val ivProvider: NonceProvider = RandomNonceGenerator.ofNonceSize(96/8)
         ) : Algorithm.EncryptionInputs<DecryptionInputs>() {
-            override fun getDecryptionInputs() =
-                DecryptionInputs(tagLength, ivProvider.provideNonce().wrap())
+            override fun getDecryptionInputs() = DecryptionInputs(
+                tagLength, ivProvider.provideNonce().wrap()
+            )
         }
 
         data class DecryptionInputs(
             val tagLength: Int = 128,
             val iv: ByteArrayWrapper
-        ) : Algorithm.DecryptionInputs()
-
-        override fun equals(other: Any?): Boolean {
-            if (other is GcmNoPadding) {
-                return other.keyLength == keyLength
-            }
-            return false
-        }
-
-        override fun hashCode(): Int {
-            return javaClass.hashCode()
+        ) : Algorithm.DecryptionInputs() {
+            override fun getEncodingMapping() = mapOf(
+                "tl" to tagLength.encodableType(),
+                "iv" to iv.data.encodableType()
+            )
         }
     }
 

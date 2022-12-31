@@ -1,5 +1,6 @@
-package io.timewheel.crypto
+package io.timewheel.crypto.encoding
 
+import io.timewheel.crypto.randomByteArray
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Test

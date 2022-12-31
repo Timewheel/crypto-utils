@@ -1,4 +1,4 @@
-package io.timewheel.crypto
+package io.timewheel.crypto.sample
 
 import android.content.Context
 import android.content.Intent
@@ -6,7 +6,11 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import androidx.appcompat.app.AppCompatActivity
-import io.timewheel.crypto.databinding.ActivityDecryptBinding
+import io.timewheel.crypto.cipher.password.PasswordCipher.DecryptionError
+import io.timewheel.crypto.cipher.AES
+import io.timewheel.crypto.cipher.password.PasswordCipher
+import io.timewheel.crypto.cipher.password.PasswordKeyGenerator
+import io.timewheel.crypto.sample.databinding.ActivityDecryptBinding
 import io.timewheel.util.Result
 import java.util.concurrent.atomic.AtomicReference
 
@@ -20,10 +24,7 @@ class DecryptActivity : AppCompatActivity() {
         binding = ActivityDecryptBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        cipher = AtomicReference(PasswordCipher.build {
-            // Cipher parameters only affect encryption
-            // Decryption parameters are encoded in the ciphertext
-        })
+        cipher = AtomicReference(PasswordCipher.create())
 
         binding.decryptInput.text = intent.getStringExtra(INPUT_KEY)
         binding.decryptDecrypt.setOnClickListener {
@@ -35,18 +36,29 @@ class DecryptActivity : AppCompatActivity() {
         val input = AtomicReference(binding.decryptInput.text.toString())
         val password = AtomicReference(binding.decryptPassword.text.toString())
         Thread {
-            val result = AtomicReference(cipher.get().decrypt(input.get(), password.get()))
+            val result = AtomicReference(
+                cipher.get().decrypt(
+                    input.get(),
+                    password.get(),
+                    PasswordCipher.DecodingOptions(
+                        AES.GcmNoPadding(AES.KeyLength.L256),
+                        PasswordKeyGenerator.Algorithm.PBKDF2WithHmacSHA256
+                    )
+                )
+            )
             Handler(Looper.getMainLooper()).post {
                 result.get().let { result ->
                     when (result) {
                         is Result.Success -> {
                             binding.decryptOutput.text = "Decryption Success!\n" +
-                                "Original text: ${result.result}"
+                                "Original text: ${result.result.data.toString(Charsets.UTF_8)}"
                         }
                         is Result.Failure -> {
                             val message = when (result.error) {
                                 is DecryptionError.BadFormat -> "Bad input format"
+                                is DecryptionError.AlgorithmNotSupported -> "Algorithm not supported"
                                 is DecryptionError.WrongPassword -> "Wrong password"
+                                is DecryptionError.KeyGenerationError -> "Key generation error"
                                 is DecryptionError.Other -> {
                                     val unexpected = result.error as DecryptionError.Other
                                     "Unexpected error: ${unexpected.exception}"

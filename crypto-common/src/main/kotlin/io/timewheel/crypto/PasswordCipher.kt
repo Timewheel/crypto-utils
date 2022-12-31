@@ -4,6 +4,7 @@ import io.timewheel.crypto.DecryptionError.*
 import io.timewheel.crypto.DecryptionResult.Failed
 import io.timewheel.crypto.DecryptionResult.Success
 import io.timewheel.crypto.cipher.password.PasswordKeyGenerator
+import io.timewheel.crypto.encoding.Base64Coder
 import io.timewheel.util.Result
 import java.nio.ByteBuffer
 import java.security.NoSuchAlgorithmException

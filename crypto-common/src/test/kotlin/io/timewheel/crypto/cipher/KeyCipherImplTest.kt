@@ -1,5 +1,6 @@
 package io.timewheel.crypto.cipher
 
+import io.timewheel.crypto.encoding.ResultEncoder
 import io.timewheel.crypto.getRandomNonce
 import io.timewheel.util.ByteArrayWrapper
 import io.timewheel.util.Result
@@ -14,14 +15,16 @@ import javax.crypto.Cipher
 
 class KeyCipherImplTest {
     private lateinit var cipherProviderFixture: CipherProviderFixture
+    private lateinit var mockResultEncoder: ResultEncoder
 
     private lateinit var subject : KeyCipherImpl
 
     @BeforeEach
     fun setUp() {
         cipherProviderFixture = CipherProviderFixture()
+        mockResultEncoder = mock()
 
-        subject = KeyCipherImpl(cipherProviderFixture)
+        subject = KeyCipherImpl(cipherProviderFixture, mockResultEncoder)
     }
 
     @Test

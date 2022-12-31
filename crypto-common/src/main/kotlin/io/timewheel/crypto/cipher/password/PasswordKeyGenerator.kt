@@ -1,6 +1,11 @@
 package io.timewheel.crypto.cipher.password
 
 import io.timewheel.crypto.NonceProvider
+import io.timewheel.crypto.StaticNonceProvider
+import io.timewheel.crypto.encoding.BadFormatException
+import io.timewheel.crypto.encoding.Encodable
+import io.timewheel.crypto.encoding.EncodableType
+import io.timewheel.crypto.encoding.encodableType
 import io.timewheel.util.ByteArrayWrapper
 import io.timewheel.util.Result
 import io.timewheel.util.wrap
@@ -44,7 +49,26 @@ interface PasswordKeyGenerator {
         val algorithm: Algorithm,
         val iterationCount: Int,
         val keyLength: Int
-    )
+    ) {
+        companion object {
+            @JvmStatic
+            internal fun fromEncodingMapping(
+                keyLength: Int,
+                algorithm: Algorithm,
+                mapping: Map<String, EncodableType>
+            ): Options {
+                val salt = mapping["s"] as? EncodableType.ByteArray ?: throw BadFormatException()
+                val iterationCount = mapping["i"] as? EncodableType.Int ?: throw BadFormatException()
+
+                return Options(
+                    StaticNonceProvider(salt.value.data),
+                    algorithm,
+                    iterationCount.value,
+                    keyLength
+                )
+            }
+        }
+    }
 
     /**
      * Result of generating a key from a password. Includes the [key] as well as the [salt], just
@@ -52,9 +76,15 @@ interface PasswordKeyGenerator {
      */
     data class ResultData(
         val key: ByteArrayWrapper,
-        val salt: ByteArrayWrapper
-    ) {
-        constructor(key: ByteArray, salt: ByteArray) : this(key.wrap(), salt.wrap())
+        val salt: ByteArrayWrapper,
+        val iterationCount: Int
+    ) : Encodable {
+        constructor(key: ByteArray, salt: ByteArray, iterationCount: Int) : this(key.wrap(), salt.wrap(), iterationCount)
+
+        override fun getEncodingMapping() = mapOf(
+            "s" to salt.data.encodableType(),
+            "i" to iterationCount.encodableType()
+        )
     }
 
     /**
@@ -132,7 +162,7 @@ internal class PasswordKeyGeneratorImpl(
         ).encoded
 
         // Return success data
-        return Result.Success(PasswordKeyGenerator.ResultData(key, salt))
+        return Result.Success(PasswordKeyGenerator.ResultData(key, salt, options.iterationCount))
     }
 }
 

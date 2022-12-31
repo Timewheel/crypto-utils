@@ -1,10 +1,10 @@
 package io.timewheel.crypto
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import org.junit.Assert.assertArrayEquals
-import org.junit.Assert.assertEquals
+import io.timewheel.crypto.encoding.Base64Coder
+import io.timewheel.crypto.encoding.Base64CoderAndroid
+import io.timewheel.crypto.encoding.Base64CoderTest
 import org.junit.Before
-import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)

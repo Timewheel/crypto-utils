@@ -1,4 +1,4 @@
-package io.timewheel.crypto
+package io.timewheel.crypto.sample
 
 import android.content.Context
 import android.os.Bundle
@@ -12,11 +12,14 @@ import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import io.timewheel.crypto.RandomNonceGenerator
+import io.timewheel.crypto.cipher.AES
 import io.timewheel.crypto.cipher.password.PasswordKeyGenerator
-import io.timewheel.crypto.databinding.ActivityEncryptBinding
-import io.timewheel.crypto.databinding.ItemAddInputBinding
-import io.timewheel.crypto.databinding.ItemInputBinding
-import io.timewheel.crypto.databinding.ItemOutputBinding
+import io.timewheel.crypto.cipher.password.PasswordCipher
+import io.timewheel.crypto.sample.databinding.ActivityEncryptBinding
+import io.timewheel.crypto.sample.databinding.ItemAddInputBinding
+import io.timewheel.crypto.sample.databinding.ItemInputBinding
+import io.timewheel.crypto.sample.databinding.ItemOutputBinding
 import io.timewheel.util.Result
 import java.util.concurrent.atomic.AtomicReference
 
@@ -34,9 +37,7 @@ class EncryptActivity : AppCompatActivity() {
         binding = ActivityEncryptBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        cipher = AtomicReference(PasswordCipher.build {
-            // Change cipher parameters here
-        })
+        cipher = AtomicReference(PasswordCipher.create())
 
         inputAdapter = InputAdapter(applicationContext)
         binding.encryptInput.adapter = inputAdapter
@@ -65,11 +66,15 @@ class EncryptActivity : AppCompatActivity() {
         val password = AtomicReference(binding.encryptPassword.editableText.toString())
         Thread {
             val output = AtomicReference(cipher.get().encrypt(
-                inputAdapter.input,
+                inputAdapter.input.first().toByteArray(Charsets.UTF_8),
                 password.get(),
                 PasswordCipher.Options(
-                    AES.default(),
-                    PasswordKeyGenerator.Options(
+                    algorithm = AES.GcmNoPadding(AES.KeyLength.L256),
+                    input = AES.GcmNoPadding.EncryptionInputs(
+                        tagLength = 128,
+                        ivProvider = RandomNonceGenerator.ofNonceSize(96/8)
+                    ),
+                    passwordKeyGeneratorOptions = PasswordKeyGenerator.Options(
                         RandomNonceGenerator.ofNonceSize(12),
                         PasswordKeyGenerator.Algorithm.PBKDF2WithHmacSHA256,
                         65536,
@@ -78,7 +83,7 @@ class EncryptActivity : AppCompatActivity() {
                 )
             ))
             Handler(Looper.getMainLooper()).post {
-                outputAdapter.setOutput(output.get().map { (it as Result.Success).result })
+                outputAdapter.setOutput(listOf((output.get() as Result.Success).result.encode()))
                 outputAdapter.notifyDataSetChanged()
             }
         }.start()

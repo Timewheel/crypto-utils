@@ -1,5 +1,8 @@
 package io.timewheel.crypto
 
+import io.timewheel.crypto.encoding.Base64Coder
+import io.timewheel.crypto.encoding.Base64CoderJvm
+import io.timewheel.crypto.encoding.Base64CoderTest
 import org.junit.Before
 
 class Base64CoderJvmTest : Base64CoderTest() {
