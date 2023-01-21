@@ -8,7 +8,7 @@ plugins {
 
 ext.artifact = [
         'group': "io.timewheel.util",
-        'version': "0.1.0"
+        'version': "0.1.0${timestamp()}"
 ]
 
 ext.versions = [
@@ -41,4 +41,12 @@ ext.deps = [
 
 task clean(type: Delete) {
     delete rootProject.buildDir
+}
+
+def timestamp() {
+    if (hasProperty("timestampVersion")) {
+        return ".${System.currentTimeMillis()}"
+    } else {
+        return ""
+    }
 }
